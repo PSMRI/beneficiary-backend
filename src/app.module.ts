@@ -10,6 +10,8 @@ import { ContentModule } from './content/content.module';
 import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { ContentService } from './content/content.service';
 import { ResponseCache } from './entity/response.entity';
+import { UserModule } from './modules/users/users.module';
+import { User } from './entity/user.entity';
 
 @Module({
   imports: [
@@ -33,12 +35,13 @@ import { ResponseCache } from './entity/response.entity';
         logging: true,
       }),
     }),
-    TypeOrmModule.forFeature([ResponseCache]),
+    TypeOrmModule.forFeature([ResponseCache, User]),
     {
       ...HttpModule.register({}),
       global: true,
     },
     ContentModule,
+    UserModule,
   ],
   controllers: [AppController],
   providers: [
