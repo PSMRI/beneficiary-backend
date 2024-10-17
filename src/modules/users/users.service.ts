@@ -169,12 +169,6 @@ export class UserService {
     const userInfo = await this.userInfoRepository.findOne({
       where: { user_id },
     });
-    if (updateUserInfoDto?.aadhaar) {
-      const encrypted = this.encryptionService.encrypt(
-        updateUserInfoDto?.aadhaar,
-      );
-      updateUserInfoDto.aadhaar = encrypted;
-    }
     Object.assign(userInfo, updateUserInfoDto);
     return this.userInfoRepository.save(userInfo);
   }
