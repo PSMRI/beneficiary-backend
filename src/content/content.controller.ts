@@ -12,8 +12,10 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { LoggerService } from 'src/logger/logger.service';
 import { ContentService } from './content.service';
 import { CreateOrderDto } from './dto/create-user.dto';
-import { ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBasicAuth, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { AuthGuard } from '@modules/auth/auth.guard';
+import { promises as fs } from 'fs';
+import * as path from 'path';
 
 @UseGuards(AuthGuard)
 @ApiTags('Content')
@@ -121,32 +123,29 @@ export class ContentController {
     status: 200,
     description: 'List of documents',
   })
-  getCertificates() {
-    const certificates = [
-      { name: 'Income Certificate', code: 'income_certificate' },
-      { name: 'Caste Certificate', code: 'caste_certificate' },
-      { name: 'Disability Certificate', code: 'disability_certificate' },
-      { name: 'Ration Card/BPL Card', code: 'ration_card_bpl_card' },
-      { name: 'Domicile Certificate', code: 'domicile_certificate' },
-      {
-        name: 'Business Certificate of Tehsildar',
-        code: 'business_certificate_of_tehsildar',
-      },
-      { name: 'Work Contract Certificate', code: 'work_contract_certificate' },
-      {
-        name: 'Hostel Accommodation Certificate',
-        code: 'hostel_accommodation_certificate',
-      },
-      { name: 'Enrolment Certificate', code: 'enrolment_certificate' },
-      { name: 'Marksheet', code: 'Marksheet' },
-      { name: 'Birth Certificate', code: 'birth_certificate' },
-    ];
+  @ApiBasicAuth('access-token')
+  async getCertificates() {
+    const filePath = path.join(
+      __dirname,
+      '../../src/common/documentMasterList.json',
+    );
 
-    return {
-      success: true,
-      message: 'Documents fetched successfully',
-      data: certificates,
-    };
+    try {
+      const data = await fs.readFile(filePath, 'utf-8');
+      const certificates = JSON.parse(data);
+
+      return {
+        success: true,
+        message: 'Documents fetched successfully',
+        data: certificates,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Error fetching documents',
+        error: error.message,
+      };
+    }
   }
   @Post('/encrypt')
   async encrption(@Request() request, @Body() body) {

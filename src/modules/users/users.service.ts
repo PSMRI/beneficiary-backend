@@ -9,7 +9,6 @@ import { UserDoc } from '@entities/user_docs.entity';
 import { CreateUserInfoDto } from './dto/create-user-info.dto';
 import { UserInfo } from '@entities/user_info.entity';
 import { EncryptionService } from 'src/common/helper/encryptionService';
-import { UserWithInfo } from './interfaces/user-with-info.interface';
 import { Consent } from '@entities/consent.entity';
 import { CreateConsentDto } from './dto/create-consent.dto';
 import { UserApplication } from '@entities/user_applications.entity';
@@ -37,15 +36,6 @@ export class UserService {
   async create(createUserDto: CreateUserDto) {
     const user = this.userRepository.create(createUserDto);
     try {
-      // const existingUser = await this.userRepository.findOne({
-      //   where: { email: createUserDto.email },
-      // });
-      // if (existingUser) {
-      //   return new ErrorResponse({
-      //     statusCode: HttpStatus.CONFLICT, // Created
-      //     errorMessage: 'User with email already exist',
-      //   });
-      // }
       const savedUser = await this.userRepository.save(user);
 
       return new SuccessResponse({
@@ -86,18 +76,40 @@ export class UserService {
       });
     }
   }
+  async findOne(req: any, decryptData?: boolean) {
+    try {
+      const sso_id = req?.user?.keycloak_id;
+      if (!sso_id) {
+        return new ErrorResponse({
+          statusCode: HttpStatus.UNAUTHORIZED,
+          errorMessage: 'Invalid or missing Keycloak ID',
+        });
+      }
 
-  async findOne(sso_id: string, decryptData?: boolean): Promise<UserWithInfo> {
-    let user = await this.userRepository.findOne({ where: { sso_id } });
-    if (!user) {
-      throw new NotFoundException(`User with ID '${sso_id}' not found`);
+      const user = await this.userRepository.findOne({ where: { sso_id } });
+      if (!user) {
+        return new ErrorResponse({
+          statusCode: HttpStatus.NOT_FOUND,
+          errorMessage: `User with ID '${sso_id}' not found`,
+        });
+      }
+
+      const userInfo = await this.findOneUserInfo(user.user_id, decryptData);
+      const final = {
+        ...user,
+        ...userInfo,
+      };
+      return new SuccessResponse({
+        statusCode: HttpStatus.OK,
+        message: 'User retrieved successfully.',
+        data: final,
+      });
+    } catch (error) {
+      return new ErrorResponse({
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        errorMessage: error.message,
+      });
     }
-    const userInfo = await this.findOneUserInfo(user.user_id, decryptData);
-    const final: UserWithInfo = {
-      user,
-      userInfo: userInfo,
-    };
-    return final;
   }
 
   async findOneUserInfo(
@@ -109,19 +121,21 @@ export class UserService {
     });
     if (userInfo && decryptData) {
       const decrypted = this.encryptionService.decrypt(userInfo?.aadhaar);
+
       userInfo.aadhaar = decrypted;
     }
 
     return userInfo;
   }
 
-  async remove(user_id: string): Promise<void> {
+  /*async remove(user_id: string): Promise<void> {
     const userWithInfo = await this.findOne(user_id);
 
     const user = userWithInfo.user;
 
     await this.userRepository.remove(user);
-  }
+  }*/
+
   // Method to check if mobile number exists
   async findByMobile(mobile: string): Promise<User | undefined> {
     return await this.userRepository.findOne({
@@ -208,15 +222,11 @@ export class UserService {
     const userInfo = await this.userInfoRepository.findOne({
       where: { user_id },
     });
-    console.log('updateUserInfoDto?.aadhaar', updateUserInfoDto?.aadhaar);
 
     if (updateUserInfoDto?.aadhaar) {
-      console.log('------------------>', updateUserInfoDto?.aadhaar);
-
       const encrypted = this.encryptionService.encrypt(
         updateUserInfoDto?.aadhaar,
       );
-      console.log('enc data-->', encrypted);
 
       updateUserInfoDto.aadhaar = encrypted;
     }
@@ -232,16 +242,23 @@ export class UserService {
   }
   async createUserApplication(
     createUserApplicationDto: CreateUserApplicationDto,
-  ): Promise<UserApplication> {
+  ) {
+    const encrypted = this.encryptionService.encrypt(
+      createUserApplicationDto.application_data,
+    );
+    createUserApplicationDto.application_data = { encrypted };
     const userApplication = this.userApplicationRepository.create(
       createUserApplicationDto,
     );
-    return this.userApplicationRepository.save(userApplication);
+    const response = await this.userApplicationRepository.save(userApplication);
+    return new SuccessResponse({
+      statusCode: HttpStatus.OK,
+      message: 'User application created successfully.',
+      data: response,
+    });
   }
 
-  async findOneUserApplication(
-    internal_application_id: string,
-  ): Promise<UserApplication> {
+  async findOneUserApplication(internal_application_id: string) {
     const userApplication = await this.userApplicationRepository.findOne({
       where: { internal_application_id },
     });
@@ -250,38 +267,82 @@ export class UserService {
         `Application with ID '${internal_application_id}' not found`,
       );
     }
-    return userApplication;
+    const decrypted = this.encryptionService.decrypt(
+      userApplication?.application_data?.encrypted,
+    );
+    userApplication.application_data = decrypted;
+    return new SuccessResponse({
+      statusCode: HttpStatus.OK,
+      message: 'User application retrieved successfully.',
+      data: userApplication,
+    });
   }
 
   async findAllApplicationsByUserId(requestBody: {
     filters?: any;
     search?: string;
-  }): Promise<UserApplication[]> {
+    page?: number;
+    limit?: number;
+  }) {
     let whereClause = {};
-    const filterKeys = this.userApplicationRepository.metadata.columns.map(
-      (column) => column.propertyName,
-    );
-    const { filters = {}, search } = requestBody; // Default filters to an empty object
+    try {
+      const filterKeys = this.userApplicationRepository.metadata.columns.map(
+        (column) => column.propertyName,
+      );
+      const { filters = {}, search, page = 1, limit = 10 } = requestBody;
 
-    // Handle filters if provided
-    if (filters && Object.keys(filters).length > 0) {
-      for (const [key, value] of Object.entries(filters)) {
-        // Check for valid filter keys and ignore null or undefined values
-        if (filterKeys.includes(key) && value !== null && value !== undefined) {
-          whereClause[key] = value;
+      // Handle filters
+      if (filters && Object.keys(filters).length > 0) {
+        for (const [key, value] of Object.entries(filters)) {
+          if (
+            filterKeys.includes(key) &&
+            value !== null &&
+            value !== undefined
+          ) {
+            whereClause[key] = value;
+          }
         }
       }
-    }
 
-    // Handle search for `application_name` using ILIKE
-    if (search && search.trim().length > 0) {
-      whereClause['application_name'] = ILike(`%${search}%`);
-    }
+      // Handle search for `application_name`
+      if (search && search.trim().length > 0) {
+        whereClause['application_name'] = ILike(`%${search}%`);
+      }
 
-    // Find and return the applications based on the where clause
-    return await this.userApplicationRepository.find({
-      where: whereClause,
-    });
+      // Fetch data with pagination
+      const [userApplication, total] =
+        await this.userApplicationRepository.findAndCount({
+          where: whereClause,
+          skip: (page - 1) * limit,
+          take: limit,
+        });
+
+      // Decrypt data in parallel
+      if (userApplication.length > 0) {
+        await Promise.all(
+          userApplication.map(async (item) => {
+            try {
+              const decrypted = this.encryptionService.decrypt(
+                item?.application_data?.encrypted,
+              );
+              item.application_data = decrypted;
+            } catch (decryptionError) {
+              console.error('Error decrypting data:', decryptionError);
+              // Handle or log decryption error without halting the process
+            }
+          }),
+        );
+      }
+
+      return new SuccessResponse({
+        statusCode: HttpStatus.OK,
+        message: 'User applications list retrieved successfully.',
+        data: { applications: userApplication, total },
+      });
+    } catch (error) {
+      console.error('Error fetching user applications:', error);
+      throw new Error('Failed to fetch user applications');
+    }
   }
 
   public async registerUserWithUsername(body) {
@@ -318,58 +379,50 @@ export class UserService {
     // Step 3: Get Keycloak admin token
     const token = await this.keycloakService.getAdminKeycloakToken();
 
-    if (token?.access_token) {
-      try {
-        // Step 4: Register user in Keycloak
-        const registerUserRes = await this.keycloakService.registerUser(
-          data_to_create_user,
-          token.access_token,
-        );
+    try {
+      // Step 4: Register user in Keycloak
+      const registerUserRes = await this.keycloakService.registerUser(
+        data_to_create_user,
+        token.access_token,
+      );
 
-        if (registerUserRes.error) {
-          if (
-            registerUserRes.error.message ==
-            'Request failed with status code 409'
-          ) {
-            console.log('User already exists!');
-          } else {
-            console.log(registerUserRes.error.message);
-          }
-        } else if (registerUserRes.headers.location) {
-          const split = registerUserRes.headers.location.split('/');
-          const keycloak_id = split[split.length - 1];
-          body.keycloak_id = keycloak_id;
-          body.username = data_to_create_user.username;
-
-          // Step 5: Try to create user in PostgreSQL
-          const result = await this.createKeycloakData(body);
-
-          // If successful, return success response
-          const userResponse = {
-            user: result,
-            keycloak_id: keycloak_id,
-            username: data_to_create_user.username,
-          };
-          return userResponse;
+      if (registerUserRes.error) {
+        if (
+          registerUserRes.error.message == 'Request failed with status code 409'
+        ) {
+          console.log('User already exists!');
         } else {
-          console.log('Unable to create user in Keycloak');
+          console.log(registerUserRes.error.message);
         }
-      } catch (error) {
-        console.error('Error during user registration:', error);
+      } else if (registerUserRes.headers.location) {
+        const split = registerUserRes.headers.location.split('/');
+        const keycloak_id = split[split.length - 1];
+        body.keycloak_id = keycloak_id;
+        body.username = data_to_create_user.username;
 
-        // Step 6: Rollback - delete user from Keycloak if PostgreSQL insertion fails
-        if (body?.keycloak_id) {
-          await this.keycloakService.deleteUser(body.keycloak_id);
-          console.log(
-            'Keycloak user deleted due to failure in PostgreSQL creation',
-          );
-        }
+        // Step 5: Try to create user in PostgreSQL
+        const result = await this.createKeycloakData(body);
+
+        // If successful, return success response
+        const userResponse = {
+          user: result,
+          keycloak_id: keycloak_id,
+          username: data_to_create_user.username,
+        };
+        return userResponse;
+      } else {
+        console.log('Unable to create user in Keycloak');
+      }
+    } catch (error) {
+      console.error('Error during user registration:', error);
+
+      // Step 6: Rollback - delete user from Keycloak if PostgreSQL insertion fails
+      if (body?.keycloak_id) {
+        await this.keycloakService.deleteUser(body.keycloak_id);
         console.log(
-          'Error during user registration. Keycloak user has been rolled back.',
+          'Keycloak user deleted due to failure in PostgreSQL creation',
         );
       }
-    } else {
-      console.log('Unable to get Keycloak token');
     }
   }
 }

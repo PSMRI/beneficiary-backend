@@ -10,10 +10,7 @@ import { User } from './user.entity';
 
 @Entity('user_docs')
 export class UserDoc {
-  @PrimaryGeneratedColumn()
-  id: number;
-
-  @Column({ type: 'uuid', unique: true, default: () => 'uuid_generate_v4()' })
+  @PrimaryGeneratedColumn('uuid')
   doc_id: string;
 
   @Column({ type: 'uuid' })

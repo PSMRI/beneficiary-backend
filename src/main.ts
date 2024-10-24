@@ -7,6 +7,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { ResponseInterceptor } from './common/Interceptors/response.interceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -39,6 +40,7 @@ async function bootstrap() {
       },
     }),
   );
+  app.useGlobalInterceptors(new ResponseInterceptor());
 
   // Configure Swagger
   const config = new DocumentBuilder()
@@ -46,6 +48,15 @@ async function bootstrap() {
     .setDescription('API documentation for UBI Beneficiary')
     .setVersion('1.0')
     .addServer('/api')
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        description: 'Enter your Bearer token in the format: Bearer {token}',
+      },
+      'access-token',
+    )
     .build();
 
   const document = SwaggerModule.createDocument(app, config);

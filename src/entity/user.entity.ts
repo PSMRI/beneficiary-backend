@@ -10,10 +10,7 @@ import {
 @Entity('users')
 @Unique(['user_id', 'email'])
 export class User {
-  @PrimaryGeneratedColumn()
-  id: number;
-
-  @Column({ type: 'uuid', default: () => 'uuid_generate_v4()' })
+  @PrimaryGeneratedColumn('uuid')
   user_id: string;
 
   @Column({ length: 50 })

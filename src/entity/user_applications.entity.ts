@@ -8,16 +8,13 @@ import {
 
 @Entity('user_applications')
 export class UserApplication {
-  @PrimaryGeneratedColumn()
-  id: number;
-
-  @Column({ type: 'uuid' })
+  @Column('uuid')
   user_id: string;
 
   @Column({ type: 'varchar', length: 255 })
   benefit_id: string;
 
-  @Column({ type: 'uuid', unique: true, default: () => 'uuid_generate_v4()' })
+  @PrimaryGeneratedColumn('uuid')
   internal_application_id: string;
 
   @Column({ type: 'varchar', length: 255 })

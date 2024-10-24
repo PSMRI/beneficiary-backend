@@ -25,8 +25,8 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'User registered successfully.' })
   @ApiResponse({ status: 409, description: 'Mobile number already exists.' })
   @ApiResponse({ status: 400, description: 'Bad Request.' })
-  public async register(@Body() body: RegisterDTO, @Res() response: Response) {
-    return this.authService.register(body, response);
+  public async register(@Body() body: RegisterDTO) {
+    return await this.authService.register(body);
   }
 
   @Post('/login')

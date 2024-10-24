@@ -1,0 +1,19 @@
+[
+  { "name": "Income Certificate", "code": "income_certificate" },
+  { "name": "Caste Certificate", "code": "caste_certificate" },
+  { "name": "Disability Certificate", "code": "disability_certificate" },
+  { "name": "Ration Card/BPL Card", "code": "ration_card_bpl_card" },
+  { "name": "Domicile Certificate", "code": "domicile_certificate" },
+  {
+    "name": "Business Certificate of Tehsildar",
+    "code": "business_certificate_of_tehsildar"
+  },
+  { "name": "Work Contract Certificate", "code": "work_contract_certificate" },
+  {
+    "name": "Hostel Accommodation Certificate",
+    "code": "hostel_accommodation_certificate"
+  },
+  { "name": "Enrolment Certificate", "code": "enrolment_certificate" },
+  { "name": "Marksheet", "code": "marksheet" },
+  { "name": "Birth Certificate", "code": "birth_certificate" }
+]
