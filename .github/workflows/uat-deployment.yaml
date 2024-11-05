@@ -1,0 +1,24 @@
+name: Deploy to Tekdi-PIRAMAL-OU
+on:
+  workflow_dispatch:
+jobs:
+   Deploy_on_UAT_UBA:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+    - 
+      name: Deploy Stack
+      uses: appleboy/ssh-action@master
+      with:
+          host: ${{ secrets.HOST_NAME_UAT }}
+          username: ${{ secrets.USERNAME_UAT }}
+          key: ${{ secrets.EC2_SSH_KEY_UAT }}
+          port: ${{ secrets.PORT_UAT }}
+          script: |    
+               cd ${{ secrets.TARGET_DIR_UAT }}
+               if [ -f .env ]; then
+               rm .env
+               fi
+               echo '${{ secrets.UAT_ENV }}' > .env
+               ls -ltra
+               ./deploy.sh
