@@ -65,4 +65,13 @@ export class UserInfo {
     onUpdate: 'CURRENT_TIMESTAMP',
   })
   updated_at: Date;
+
+  // @Column({ type: 'boolean' })
+  // fields_verified: boolean;
+
+  // @Column({ type: 'json' })
+  // fields_verified_data: any;
+
+  // @Column({ type: 'timestamp without time zone' })
+  // fields_verified_at: Date;
 }

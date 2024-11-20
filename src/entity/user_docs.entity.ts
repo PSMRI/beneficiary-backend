@@ -46,4 +46,7 @@ export class UserDoc {
 
   @CreateDateColumn({ type: 'timestamptz', default: () => 'NOW()' })
   uploaded_at: Date;
+
+  // @Column({ type: 'boolean' })
+  // verified: boolean | null;
 }

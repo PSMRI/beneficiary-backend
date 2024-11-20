@@ -1,0 +1,12 @@
+{
+  "aadhaar": {
+    "firstName": 0,
+    "middleName": 1,
+    "lastName": 2
+  },
+  "xCertificate": {
+    "firstName": 1,
+    "middleName": 2,
+    "lastName": 0
+  }
+}

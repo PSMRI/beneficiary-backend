@@ -1,0 +1,11 @@
+[
+  {
+    "vcType": "w3c",
+    "format": "json",
+    "fields": {
+      "firstName": "credentialSubject.firstName",
+      "lastName": "credentialSubject.lastName",
+      "income": "credentialSubject.income.amount"
+    }
+  }
+]

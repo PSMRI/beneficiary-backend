@@ -1,0 +1,12 @@
+[
+  {
+    "vcType": "w3c",
+    "format": "json",
+    "fields": {
+      "firstName": "credentialSubject.firstName",
+      "middleName": "credentialSubject.middleName",
+      "lastName": "credentialSubject.lastName",
+      "caste": "credentialSubject.caste"
+    }
+  }
+]
