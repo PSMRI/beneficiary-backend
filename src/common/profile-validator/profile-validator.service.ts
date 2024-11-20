@@ -14,10 +14,10 @@ export class UserProfile {
     ];
 
     for (const { regex, format } of formats) {
-      const match = dateStr.match(regex);
+      const match = regex.exec(dateStr);
       if (match) {
         if (format === 'DD-MM-YYYY' || format === 'DD/MM/YYYY') {
-          const [_, day, month, year] = match;
+          const [, day, month, year] = match; // Use destructuring to get the groups
           return `${year}-${month}-${day}`; // Convert to 'YYYY-MM-DD'
         } else {
           return match[0]; // Already in 'YYYY-MM-DD' format
@@ -29,12 +29,45 @@ export class UserProfile {
     return null;
   }
 
+  private getPathValue(vcType: string, obj: any, pathValue: any) {
+    switch (vcType) {
+      case 'digilocker':
+        return obj.fields['name'];
+
+      default:
+        return pathValue;
+    }
+  }
+
   // Gets value tracing a path in a vc
+  // private getAttributeValue(vc: any, pathValue: string): any {
+  //   if (vc.docFormat === 'json') {
+  //     return pathValue.split('.').reduce((acc, part) => {
+  //       return acc && acc[part];
+  //     }, vc.content);
+  //   }
+  // }
   private getAttributeValue(vc: any, pathValue: string): any {
     if (vc.docFormat === 'json') {
-      return pathValue.split('.').reduce((acc, part) => {
-        return acc && acc[part];
-      }, vc.content);
+      return pathValue
+        .split('.')
+        .reduce((acc, part) => acc?.[part], vc.content);
+    }
+  }
+
+  private getNewAttributeValue(
+    vc: any,
+    attributeValue: any,
+    nameFieldsPosition: any,
+    profileAttribute: any,
+  ) {
+    switch (vc.vcType) {
+      case 'digilocker':
+        const nameValues: string[] = attributeValue.split(' ');
+        return nameValues[nameFieldsPosition[vc.docType][profileAttribute]];
+
+      default:
+        return attributeValue;
     }
   }
 
@@ -83,68 +116,64 @@ export class UserProfile {
       const vcType: string = obj.vcType;
       const format: string = obj.format;
 
-      const vc: any | undefined = vcs.find(
+      const vc: any = vcs.find(
         (vc) =>
           vc.vcType === vcType &&
           vc.docFormat === format &&
           vc.docType === fileName,
       );
 
-      if (vc) {
-        // console.log('VC FOUND...');
-        let pathValue: string = obj.fields[profileAttribute];
-        if (
-          ['firstName', 'middleName', 'lastName'].includes(profileAttribute)
-        ) {
-          if (vc.vcType === 'digilocker') {
-            pathValue = obj.fields['name'];
-          }
-        }
-        // console.log(`PATH: ${pathValue}`);
-
-        let attributeValue: any = this.getAttributeValue(vc, pathValue);
-        // console.log(`ATTR VAL: ${attributeValue}`);
-
-        const values: any | undefined = fieldValues[profileAttribute];
-        if (values) {
-          const attribute: string = userProfile[profileAttribute].toLowerCase();
-          return values[attribute].includes(attributeValue.toLowerCase());
-        }
-
-        if (
-          ['firstName', 'middleName', 'lastName'].includes(profileAttribute)
-        ) {
-          if (vc.vcType === 'digilocker') {
-            const nameValues: string[] = attributeValue.split(' ');
-            attributeValue =
-              nameValues[nameFieldsPosition[vc.docType][profileAttribute]];
-          }
-        }
-
-        if (profileAttribute === 'dob') {
-          const standardDate = this.parseToStandardFormat(attributeValue);
-          if (standardDate) {
-            const areEqual = userProfile[profileAttribute] === standardDate;
-            // console.log(`Dates are equal: ${areEqual}`);
-            // console.log('---------------------------------------------');
-            return areEqual; // true or false based on the comparison
-          } else {
-            return false;
-          }
-        }
-
-        // console.log(`ATTR VAL (UPDATED): ${attributeValue}`);
-        // console.log(`USER PROF ATTR VAL: ${userProfile[profileAttribute]}`);
-        // console.log(
-        //   `VALUES MATCHED: ${attributeValue == userProfile[profileAttribute]}`,
-        // );
+      if (!vc) {
+        // console.log('VC NOT FOUND...');
         // console.log('---------------------------------------------');
-
-        return attributeValue == userProfile[profileAttribute];
+        continue;
       }
 
-      // console.log('VC NOT FOUND...');
+      // console.log('VC FOUND...');
+      let pathValue: string = obj.fields[profileAttribute];
+      if (['firstName', 'middleName', 'lastName'].includes(profileAttribute)) {
+        pathValue = this.getPathValue(vc.vcType, obj, pathValue);
+      }
+      // console.log(`PATH: ${pathValue}`);
+
+      let attributeValue: any = this.getAttributeValue(vc, pathValue);
+      // console.log(`ATTR VAL: ${attributeValue}`);
+
+      const values: any = fieldValues[profileAttribute];
+      if (values) {
+        const attribute: string = userProfile[profileAttribute].toLowerCase();
+        return values[attribute].includes(attributeValue.toLowerCase());
+      }
+
+      if (['firstName', 'middleName', 'lastName'].includes(profileAttribute)) {
+        attributeValue = this.getNewAttributeValue(
+          vc,
+          attributeValue,
+          nameFieldsPosition,
+          profileAttribute,
+        );
+      }
+
+      if (profileAttribute === 'dob') {
+        const standardDate = this.parseToStandardFormat(attributeValue);
+        if (standardDate) {
+          // const areEqual = userProfile[profileAttribute] === standardDate;
+          // console.log(`Dates are equal: ${areEqual}`);
+          // console.log('---------------------------------------------');
+          return userProfile[profileAttribute] === standardDate; // true or false based on the comparison
+        } else {
+          return false;
+        }
+      }
+
+      // console.log(`ATTR VAL (UPDATED): ${attributeValue}`);
+      // console.log(`USER PROF ATTR VAL: ${userProfile[profileAttribute]}`);
+      // console.log(
+      //   `VALUES MATCHED: ${attributeValue == userProfile[profileAttribute]}`,
+      // );
       // console.log('---------------------------------------------');
+
+      return attributeValue == userProfile[profileAttribute];
     }
 
     return false;

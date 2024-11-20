@@ -1,10 +1,5 @@
 [
   {
-    "vcType": "digilocker",
-    "format": "json",
-    "fields": {}
-  },
-  {
     "vcType": "w3c",
     "format": "json",
     "fields": {

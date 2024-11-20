@@ -3,11 +3,15 @@ import { ErrorResponse } from 'src/common/responses/error-response';
 import { SuccessResponse } from 'src/common/responses/success-response';
 import * as crypto from 'crypto';
 import { EncryptionService } from 'src/common/helper/encryptionService';
+import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 
 @Injectable()
 export class OtpService {
-  constructor(private readonly encryptionService: EncryptionService) {}
+  constructor(
+    private readonly encryptionService: EncryptionService,
+    private readonly configService: ConfigService,
+  ) {}
   private validateIndianPhoneNumber(phoneNumber: string): boolean {
     // Regular expression to match the Indian phone number format
     const phoneRegex = /^\+91-\d{10}$/;
@@ -76,6 +80,7 @@ export class OtpService {
         },
       });
 
+      const otpAuthKey = this.configService.get<string>('OTP_AUTH_KEY');
       const config = {
         method: 'post',
         maxBodyLength: Infinity,
@@ -83,8 +88,7 @@ export class OtpService {
         headers: {
           'Content-Type': 'application/json',
           Accept: 'application/json',
-          Authorization:
-            'Basic UElSQU1BTF9TV19BSHhveUNYZWplSmJhMTNvS0hjdjpdS3Q5R0FwOH0kUypA',
+          Authorization: `Basic ${otpAuthKey}`,
         },
         data: smsRequestData,
       };

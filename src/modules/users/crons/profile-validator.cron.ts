@@ -36,34 +36,34 @@
 //   }
 
 //   // CRON job to validate 10 user's data at a time against their VCs
-//   @Cron('*/20 * * * * *')
+//   @Cron('*/10 * * * * *')
 //   async validateProfile() {
-//     // // Take users from User-Info Table where fields_verified_at is NULL
-//     // const users = await this.userInfoRepository
-//     //   .createQueryBuilder('user')
-//     //   .orderBy(
-//     //     `CASE
-//     //             WHEN user.fields_verified_at IS NULL THEN 0
-//     //             WHEN user.fields_verified = false AND user.fields_verified_at IS NOT NULL THEN 1
-//     //             ELSE 2
-//     //         END`,
-//     //     'ASC',
-//     //   )
-//     //   .addOrderBy(
-//     //     `CASE
-//     //             WHEN user.fields_verified_at IS NULL THEN "user"."updated_at"
-//     //             ELSE "user"."fields_verified_at"
-//     //         END`,
-//     //     'DESC',
-//     //   )
-//     //   .take(10)
-//     //   .getMany();
+//     // Take users from User-Info Table where fields_verified_at is NULL
+//     const users = await this.userInfoRepository
+//       .createQueryBuilder('user')
+//       .orderBy(
+//         `CASE
+//                 WHEN user.fields_verified_at IS NULL THEN 0
+//                 WHEN user.fields_verified = false AND user.fields_verified_at IS NOT NULL THEN 1
+//                 ELSE 2
+//             END`,
+//         'ASC',
+//       )
+//       .addOrderBy(
+//         `CASE
+//                 WHEN user.fields_verified_at IS NULL THEN "user"."updated_at"
+//                 ELSE "user"."fields_verified_at"
+//             END`,
+//         'DESC',
+//       )
+//       .take(10)
+//       .getMany();
 
-//     const users = await this.userInfoRepository.find({
-//       where: {
-//         user_id: '2ac3c9a2-bc8b-41f8-88fc-908a268ce984',
-//       },
-//     });
+//     // const users = await this.userInfoRepository.find({
+//     //   where: {
+//     //     user_id: '2ac3c9a2-bc8b-41f8-88fc-908a268ce984',
+//     //   },
+//     // });
 
 //     // const users = [];
 
@@ -106,7 +106,7 @@
 //         vcs.push({ docType, vcType, docFormat, content });
 //       }
 
-//       // console.log('VCs: ', vcs);
+//       //   console.log('VCs: ', vcs);
 
 //       // Verify user data
 //       //   const userProfile = new UserProfile(userProfileInfo, vcs);
@@ -115,7 +115,7 @@
 //         vcs,
 //       );
 
-//       // console.log('Verification Result: ', verificationResult);
+//       //   console.log('Verification Result: ', verificationResult);
 
 //       let cnt = 0;
 //       for (const result of verificationResult) {
