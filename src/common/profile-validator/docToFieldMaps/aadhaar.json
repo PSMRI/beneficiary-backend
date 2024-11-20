@@ -1,0 +1,26 @@
+[
+  {
+    "vcType": "digilocker",
+    "format": "json",
+    "fields": {
+      "name": "KycRes.UidData.Poi.@name",
+      "dob": "KycRes.UidData.Poi.@dob",
+      "gender": "KycRes.UidData.Poi.@gender",
+      "country": "KycRes.UidData.Poa.@country",
+      "state": "KycRes.UidData.Poa.@state",
+      "city": "KycRes.UidData.Poa.@dist",
+      "pincode": "KycRes.UidData.Poa.@pc"
+    }
+  },
+  {
+    "vcType": "w3c",
+    "format": "json",
+    "fields": {
+      "firstName": "credentialSubject.firstName",
+      "middleName": "credentialSubject.middleName",
+      "lastName": "credentialSubject.lastName",
+      "dob": "credentialSubject.dob",
+      "gender": "credentialSubject.gender"
+    }
+  }
+]

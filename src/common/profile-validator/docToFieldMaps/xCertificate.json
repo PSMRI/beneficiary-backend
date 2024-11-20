@@ -1,0 +1,23 @@
+[
+  {
+    "vcType": "digilocker",
+    "format": "json",
+    "fields": {
+      "name": "Certificate.IssuedTo.Person.@name",
+      "xBoard": "Certificate.IssuedBy.Organization.@name",
+      "xPercent": "Certificate.CertificateData.Performance.@percentage",
+      "country": "Certificate.IssuedTo.Person.Address.@country"
+    }
+  },
+  {
+    "vcType": "w3c",
+    "format": "json",
+    "fields": {
+      "firstName": "credentialSubject.firstName",
+      "middleName": "credentialSubject.middleName",
+      "lastName": "credentialSubject.lastName",
+      "xBoard": "credentialSubject.board",
+      "xPercent": "credentialSubject.percentage"
+    }
+  }
+]

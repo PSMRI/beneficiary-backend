@@ -1,0 +1,25 @@
+{
+  "firstName": [
+    "aadhaar",
+    "xCertificate",
+    "casteCertificate",
+    "incomeCertificate"
+  ],
+  "middleName": ["aadhaar", "xCertificate", "casteCertificate"],
+  "lastName": [
+    "aadhaar",
+    "xCertificate",
+    "casteCertificate",
+    "incomeCertificate"
+  ],
+  "gender": ["aadhaar"],
+  "dob": ["aadhaar"],
+  "caste": ["casteCertificate"],
+  "income": ["incomeCertificate"],
+  "xBoard": ["xCertificate"],
+  "xPercent": ["xCertificate"],
+  "country": ["aadhaar", "xCertificate"],
+  "state": ["aadhaar"],
+  "city": ["aadhaar"],
+  "pincode": ["aadhaar"]
+}

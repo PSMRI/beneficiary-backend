@@ -1,0 +1,10 @@
+{
+  "gender": {
+    "male": ["male", "m"],
+    "female": ["female", "f"],
+    "other": ["other", "o"]
+  },
+  "country": {
+    "india": ["india", "in"]
+  }
+}
