@@ -30,13 +30,15 @@ export class UserProfile {
   }
 
   private getPathValue(vcType: string, obj: any, pathValue: any) {
-    switch (vcType) {
-      case 'digilocker':
-        return obj.fields['name'];
+    // switch (vcType) {
+    //   case 'digilocker':
+    //     return obj.fields['name'];
 
-      default:
-        return pathValue;
-    }
+    //   default:
+    //     return pathValue;
+    // }
+    if (vcType === 'digilocker') return obj.fields['name'];
+    return pathValue;
   }
 
   // Gets value tracing a path in a vc
@@ -61,14 +63,19 @@ export class UserProfile {
     nameFieldsPosition: any,
     profileAttribute: any,
   ) {
-    switch (vc.vcType) {
-      case 'digilocker':
-        const nameValues: string[] = attributeValue.split(' ');
-        return nameValues[nameFieldsPosition[vc.docType][profileAttribute]];
+    // switch (vc.vcType) {
+    //   case 'digilocker':
+    // const nameValues: string[] = attributeValue.split(' ');
+    // return nameValues[nameFieldsPosition[vc.docType][profileAttribute]];
 
-      default:
-        return attributeValue;
+    //   default:
+    //     return attributeValue;
+    // }
+    if (vc.vcType === 'digilocker') {
+      const nameValues: string[] = attributeValue.split(' ');
+      return nameValues[nameFieldsPosition[vc.docType][profileAttribute]];
     }
+    return attributeValue;
   }
 
   // matches given profile attribute with values in VCs

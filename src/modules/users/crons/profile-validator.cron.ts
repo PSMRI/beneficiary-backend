@@ -115,7 +115,7 @@
 //         vcs,
 //       );
 
-//       //   console.log('Verification Result: ', verificationResult);
+//       console.log('Verification Result: ', verificationResult);
 
 //       let cnt = 0;
 //       for (const result of verificationResult) {
