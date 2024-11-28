@@ -9,6 +9,8 @@ import { EncryptionService } from 'src/common/helper/encryptionService';
 import { Consent } from '@entities/consent.entity';
 import { UserApplication } from '@entities/user_applications.entity';
 import { KeycloakService } from '@services/keycloak/keycloak.service';
+import ProfileValidatorCron from './crons/profile-validator.cron';
+import { UserProfileValidator } from 'src/common/profile-validator/profile-validator.service';
 
 @Module({
   imports: [
@@ -21,6 +23,12 @@ import { KeycloakService } from '@services/keycloak/keycloak.service';
     ]),
   ],
   controllers: [UserController],
-  providers: [UserService, EncryptionService, KeycloakService],
+  providers: [
+    UserService,
+    EncryptionService,
+    KeycloakService,
+    ProfileValidatorCron,
+    UserProfileValidator,
+  ],
 })
 export class UserModule {}
