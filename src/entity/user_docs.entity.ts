@@ -5,6 +5,7 @@ import {
   CreateDateColumn,
   ManyToOne,
   JoinColumn,
+  BeforeUpdate,
 } from 'typeorm';
 import { User } from './user.entity';
 
@@ -41,9 +42,22 @@ export class UserDoc {
   @Column({ type: 'varchar', length: 100 })
   doc_datatype: string;
 
-  @Column({ type: 'boolean' })
+  @Column({ type: 'boolean', default: false })
   doc_verified: boolean;
 
   @CreateDateColumn({ type: 'timestamptz', default: () => 'NOW()' })
   uploaded_at: Date;
+
+  @Column({ type: 'boolean', nullable: true })
+  verification_result: boolean;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  verified_at: Date;
+
+  @BeforeUpdate()
+  setVerifiedAt() {
+    if (this.verification_result !== null && this.verified_at === null) {
+      this.verified_at = new Date();
+    }
+  }
 }
