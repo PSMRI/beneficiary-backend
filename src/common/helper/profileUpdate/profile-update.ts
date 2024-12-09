@@ -8,6 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { EncryptionService } from 'src/common/helper/encryptionService';
 import { parse, format, isValid } from 'date-fns';
+import { KeycloakService } from '@services/keycloak/keycloak.service';
 
 @Injectable()
 export default class ProfilePopulator {
@@ -18,6 +19,7 @@ export default class ProfilePopulator {
     @InjectRepository(UserInfo)
     private readonly userInfoRepository: Repository<UserInfo>,
     private readonly encryptionService: EncryptionService,
+    private readonly keyclockService: KeycloakService,
   ) {}
 
   private formatDateToISO(inputDate: string): string | null {
@@ -390,6 +392,12 @@ export default class ProfilePopulator {
     await queryRunner.connect();
     await queryRunner.startTransaction();
     try {
+      // Update in keyclock as well
+      await this.keyclockService.updateUser(user.sso_id, {
+        firstName: profile.firstName,
+        lastName: profile.lastName,
+      });
+      // ----------------------------------------------
       await queryRunner.manager.save(user);
       await queryRunner.commitTransaction();
       return user;
