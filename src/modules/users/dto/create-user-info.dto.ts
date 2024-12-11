@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsOptional, IsUUID, IsString, IsNumber } from 'class-validator';
+import { IsOptional, IsString, IsNumber } from 'class-validator';
 
 export class CreateUserInfoDto {
   // @IsUUID()

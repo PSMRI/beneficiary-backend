@@ -19,7 +19,6 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { CreateUserDto } from './dto/create-user.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
 import { CreateUserDocDTO } from './dto/user_docs.dto';
 import { CreateUserInfoDto } from './dto/create-user-info.dto';
 import { CreateConsentDto } from './dto/create-consent.dto';

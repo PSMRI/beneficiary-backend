@@ -1,10 +1,4 @@
-import {
-  IsUUID,
-  IsString,
-  IsNotEmpty,
-  IsBoolean,
-  IsDate,
-} from 'class-validator';
+import { IsUUID, IsString, IsNotEmpty, IsBoolean } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateConsentDto {

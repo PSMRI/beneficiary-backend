@@ -1,12 +1,10 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Transform } from 'class-transformer';
 import {
   IsNotEmpty,
   IsString,
   Matches,
   MinLength,
   IsOptional,
-  ValidateIf,
 } from 'class-validator';
 
 export class RegisterDTO {

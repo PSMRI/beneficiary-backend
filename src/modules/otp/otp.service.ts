@@ -55,15 +55,10 @@ export class OtpService {
       const data = `${phoneNumber}.${otp}`;
       const hash = crypto.createHash('sha256').update(data).digest('hex');
 
-      // console.log(`Expiry: ${expiry}`);
-      // console.log(`OTP: ${otp}`);
-      // console.log(`HASH: ${hash}`);
-
       // Generate encrypted token of hash & expiry
       const token = this.encryptionService.encrypt(
         JSON.stringify({ hash, expiry }),
       );
-      // console.log(`TOKEN (Send OTP): ${token}`);
 
       // Call API to send SMS
       const customerId = this.configService.get<string>('OTP_CUSTOMER_ID');
@@ -134,7 +129,6 @@ export class OtpService {
       // Create a hash
       const data = `${phoneNumber}.${otp}`;
       const newhash = crypto.createHash('sha256').update(data).digest('hex');
-      // console.log('NEW HASH: ', newhash);
 
       // Compare hashes
       if (tokenContent.hash !== newhash) {

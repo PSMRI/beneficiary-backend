@@ -10,7 +10,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { ILike, Repository } from 'typeorm';
 import { User } from '../../entity/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
 import { CreateUserDocDTO } from './dto/user_docs.dto';
 import { UserDoc } from '@entities/user_docs.entity';
 import { CreateUserInfoDto } from './dto/create-user-info.dto';
@@ -141,7 +140,7 @@ export class UserService {
         });
       }
 
-      const user = await this.findOneUser(userDetails.user_id, decryptData);
+      const user = await this.findOneUser(userDetails.user_id);
       const userInfo = await this.findOneUserInfo(
         userDetails.user_id,
         decryptData,
@@ -205,8 +204,8 @@ export class UserService {
     }
   }
 
-  async findOneUser(user_id: string, decryptData: boolean): Promise<User> {
-    let user = await this.userRepository.findOne({
+  async findOneUser(user_id: string): Promise<User> {
+    const user = await this.userRepository.findOne({
       where: { user_id },
     });
 
@@ -217,7 +216,7 @@ export class UserService {
     user_id: string,
     decryptData: boolean,
   ): Promise<UserInfo> {
-    let userInfo = await this.userInfoRepository.findOne({
+    const userInfo = await this.userInfoRepository.findOne({
       where: { user_id },
     });
     if (
@@ -345,18 +344,63 @@ export class UserService {
     }
   }
 
-  async createUserDocs(
-    createUserDocsDto: CreateUserDocDTO[],
-  ): Promise<UserDoc[]> {
-    const baseFolder = path.join(__dirname, 'userData'); // Base folder for storing user files
+  async getDoc(createUserDocDto: CreateUserDocDTO) {
+    const existingDoc = await this.userDocsRepository.findOne({
+      where: {
+        user_id: createUserDocDto.user_id,
+        doc_type: createUserDocDto.doc_type,
+        doc_subtype: createUserDocDto.doc_subtype,
+      },
+    });
 
+    return existingDoc;
+  }
+
+  async saveDoc(createUserDocDto: CreateUserDocDTO) {
+    const newUserDoc = this.userDocsRepository.create({
+      ...createUserDocDto,
+      doc_data: createUserDocDto.doc_data as string,
+    });
+
+    // Save to the database
+    const savedDoc = await this.userDocsRepository.save(newUserDoc);
+    return savedDoc;
+  }
+
+  async writeToFile(
+    createUserDocDto: CreateUserDocDTO,
+    userFilePath: any,
+    savedDoc: any,
+  ) {
+    try {
+      // Initialize the file with empty array if it doesn't exist
+      let currentData = [];
+      if (fs.existsSync(userFilePath)) {
+        try {
+          currentData = JSON.parse(fs.readFileSync(userFilePath, 'utf-8'));
+        } catch (err) {
+          console.error('Error reading/parsing file, reinitializing:', err);
+        }
+      }
+
+      currentData.push(savedDoc);
+
+      // Write the updated data to the file
+      fs.writeFileSync(userFilePath, JSON.stringify(currentData, null, 2));
+      console.log(
+        `File written successfully for user_id: ${createUserDocDto.user_id}`,
+      );
+    } catch (err) {
+      console.error('Error writing to file:', err);
+    }
+  }
+
+  async getSavedAndExistingDocs(
+    createUserDocsDto: CreateUserDocDTO[],
+    baseFolder: any,
+  ) {
     const savedDocs: UserDoc[] = [];
     const existingDocs: UserDoc[] = [];
-
-    // Ensure the `userData` folder exists
-    if (!fs.existsSync(baseFolder)) {
-      fs.mkdirSync(baseFolder, { recursive: true });
-    }
 
     for (const createUserDocDto of createUserDocsDto) {
       const userFilePath = path.join(
@@ -365,13 +409,7 @@ export class UserService {
       );
 
       // Check if a record with the same user_id, doc_type, and doc_subtype exists in DB
-      const existingDoc = await this.userDocsRepository.findOne({
-        where: {
-          user_id: createUserDocDto.user_id,
-          doc_type: createUserDocDto.doc_type,
-          doc_subtype: createUserDocDto.doc_subtype,
-        },
-      });
+      const existingDoc = await this.getDoc(createUserDocDto);
 
       if (existingDoc) {
         existingDocs.push(existingDoc);
@@ -391,50 +429,37 @@ export class UserService {
         }
 
         // Create the new document entity for the database
-        const newUserDoc = this.userDocsRepository.create({
-          ...createUserDocDto,
-          doc_data: createUserDocDto.doc_data as string,
-        });
-
-        // Save to the database
-        const savedDoc = await this.userDocsRepository.save(newUserDoc);
+        const savedDoc = await this.saveDoc(createUserDocDto);
         savedDocs.push(savedDoc);
 
-        try {
-          // Initialize the file with empty array if it doesn't exist
-          let currentData = [];
-          if (fs.existsSync(userFilePath)) {
-            try {
-              currentData = JSON.parse(fs.readFileSync(userFilePath, 'utf-8'));
-            } catch (err) {
-              console.error('Error reading/parsing file, reinitializing:', err);
-            }
-          }
-
-          currentData.push(savedDoc);
-
-          // Write the updated data to the file
-          fs.writeFileSync(userFilePath, JSON.stringify(currentData, null, 2));
-          console.log(
-            `File written successfully for user_id: ${createUserDocDto.user_id}`,
-          );
-        } catch (err) {
-          console.error('Error writing to file:', err);
-        }
+        await this.writeToFile(createUserDocDto, userFilePath, savedDoc);
       }
     }
 
-    if (existingDocs.length > 0) {
-      return existingDocs;
+    return { savedDocs, existingDocs };
+  }
+
+  async createUserDocs(
+    createUserDocsDto: CreateUserDocDTO[],
+  ): Promise<UserDoc[]> {
+    const baseFolder = path.join(__dirname, 'userData'); // Base folder for storing user files
+
+    // Ensure the `userData` folder exists
+    if (!fs.existsSync(baseFolder)) {
+      fs.mkdirSync(baseFolder, { recursive: true });
     }
+
+    const { savedDocs, existingDocs } = await this.getSavedAndExistingDocs(
+      createUserDocsDto,
+      baseFolder,
+    );
+
+    if (existingDocs.length > 0) return existingDocs;
 
     return savedDocs;
   }
 
-  async createUserDocsNew(
-    req,
-    createUserDocsDto: CreateUserDocDTO[],
-  ): Promise<UserDoc[]> {
+  async getUserDetails(req: any) {
     const sso_id = req?.user?.keycloak_id;
     if (!sso_id) {
       throw new UnauthorizedException('Invalid or missing Keycloak ID');
@@ -447,6 +472,43 @@ export class UserService {
     if (!userDetails) {
       throw new NotFoundException(`User with ID '${sso_id}' not found`);
     }
+
+    return userDetails;
+  }
+
+  async updateProfile(userDetails: any) {
+    try {
+      // Get all docs
+      const allDocs = await this.userDocsRepository.find({
+        where: { user_id: userDetails.user_id },
+      });
+
+      // Build VCs
+      const VCs = await this.profilePopulator.buildVCs(allDocs);
+
+      // // build profile data
+      const { userProfile, validationData } =
+        await this.profilePopulator.buildProfile(VCs);
+
+      // Update database entries
+      await this.profilePopulator.updateDatabase(
+        userProfile,
+        validationData,
+        userDetails,
+      );
+    } catch (error) {
+      Logger.error('Error in updating fields: ', error);
+      throw new InternalServerErrorException(
+        'An unexpected error occurred while updating profile.',
+      );
+    }
+  }
+
+  async createUserDocsNew(
+    req,
+    createUserDocsDto: CreateUserDocDTO[],
+  ): Promise<UserDoc[]> {
+    const userDetails = await this.getUserDetails(req);
 
     const baseFolder = path.join(__dirname, 'userData'); // Base folder for storing user files
 
@@ -494,65 +556,15 @@ export class UserService {
         }
 
         // Create the new document entity for the database
-        const newUserDoc = this.userDocsRepository.create({
-          ...createUserDocDto,
-          doc_data: createUserDocDto.doc_data as string,
-        });
-
-        // Save to the database
-        const savedDoc = await this.userDocsRepository.save(newUserDoc);
+        const savedDoc = await this.saveDoc(createUserDocDto);
         savedDocs.push(savedDoc);
 
-        try {
-          // Initialize the file with empty array if it doesn't exist
-          let currentData = [];
-          if (fs.existsSync(userFilePath)) {
-            try {
-              currentData = JSON.parse(fs.readFileSync(userFilePath, 'utf-8'));
-            } catch (err) {
-              console.error('Error reading/parsing file, reinitializing:', err);
-            }
-          }
-
-          currentData.push(savedDoc);
-
-          // Write the updated data to the file
-          fs.writeFileSync(userFilePath, JSON.stringify(currentData, null, 2));
-          console.log(
-            `File written successfully for user_id: ${createUserDocDto.user_id}`,
-          );
-        } catch (err) {
-          console.error('Error writing to file:', err);
-        }
+        await this.writeToFile(createUserDocDto, userFilePath, savedDoc);
       }
     }
 
     // Update profile based on documents
-    try {
-      // Get all docs
-      const allDocs = await this.userDocsRepository.find({
-        where: { user_id: userDetails.user_id },
-      });
-
-      // Build VCs
-      const VCs = await this.profilePopulator.buildVCs(allDocs);
-
-      // // build profile data
-      const { userProfile, validationData } =
-        await this.profilePopulator.buildProfile(VCs);
-
-      // Update database entries
-      await this.profilePopulator.updateDatabase(
-        userProfile,
-        validationData,
-        userDetails,
-      );
-    } catch (error) {
-      Logger.error('Error in updating fields: ', error);
-      throw new InternalServerErrorException(
-        'An unexpected error occurred while updating profile.',
-      );
-    }
+    await this.updateProfile(userDetails);
 
     if (existingDocs.length > 0) {
       return existingDocs;
@@ -671,7 +683,7 @@ export class UserService {
     page?: number;
     limit?: number;
   }) {
-    let whereClause = {};
+    const whereClause = {};
     try {
       const filterKeys = this.userApplicationRepository.metadata.columns.map(
         (column) => column.propertyName,
@@ -751,7 +763,7 @@ export class UserService {
       lastNameWithUnderscore?.toLowerCase() +
       lastTwoDigits;
 
-    let data_to_create_user = {
+    const data_to_create_user = {
       enabled: 'true',
       firstName: body?.firstName,
       lastName: body?.lastName,
