@@ -366,4 +366,47 @@ export class KeycloakService {
       );
     }
   }
+
+  public async updateUser(
+    userId: string,
+    updatedData: { [key: string]: any },
+  ): Promise<{ [key: string]: any }> {
+    try {
+      // Get Keycloak admin access token
+      const adminResultData = await this.getAdminKeycloakToken();
+
+      if (adminResultData?.access_token) {
+        // Keycloak URL to update user
+        const url = `${this.keycloak_url}/admin/realms/${this.realm_name_app}/users/${userId}`;
+
+        // Make HTTP PUT request to update the user
+        const { status, data } = await lastValueFrom(
+          this.httpService
+            .put(url, updatedData, {
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${adminResultData.access_token}`,
+              },
+            })
+            .pipe(map((res) => res)),
+        );
+
+        return {
+          status,
+          data,
+          message:
+            status === 204
+              ? 'User updated successfully'
+              : 'Failed to update user',
+        };
+      } else {
+        throw new BadRequestException('Error while fetching admin token!');
+      }
+    } catch (error) {
+      console.error('Error updating user:', error.message);
+      throw new HttpException(error.message, HttpStatus.CONFLICT, {
+        cause: error,
+      });
+    }
+  }
 }
