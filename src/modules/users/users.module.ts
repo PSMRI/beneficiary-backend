@@ -13,6 +13,7 @@ import ProfilePopulatorCron from './crons/profile-populator.cron';
 import ProfilePopulator from 'src/common/helper/profileUpdate/profile-update';
 import { ApplicationStatusUpdate } from './crons/application-status-update.cron';
 import { ProxyService } from '@services/proxy/proxy.service';
+import { SmsService } from 'src/common/helper/smsService';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { ProxyService } from '@services/proxy/proxy.service';
     ProfilePopulator,
     ApplicationStatusUpdate,
     ProxyService,
+    SmsService,
   ],
 })
 export class UserModule {}

@@ -14,6 +14,7 @@ import { Consent } from '@entities/consent.entity';
 import { UserApplication } from '@entities/user_applications.entity';
 import { LoggerService } from 'src/logger/logger.service';
 import ProfilePopulator from 'src/common/helper/profileUpdate/profile-update';
+import { SmsService } from 'src/common/helper/smsService';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import ProfilePopulator from 'src/common/helper/profileUpdate/profile-update';
     EncryptionService,
     LoggerService,
     ProfilePopulator,
+    SmsService,
   ],
   exports: [AuthService, UserService, EncryptionService],
 })

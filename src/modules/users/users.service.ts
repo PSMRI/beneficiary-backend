@@ -26,6 +26,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { DocumentListProvider } from 'src/common/helper/DocumentListProvider';
 import ProfilePopulator from 'src/common/helper/profileUpdate/profile-update';
+import { ConfigService } from '@nestjs/config';
+import { SmsService } from 'src/common/helper/smsService';
 
 @Injectable()
 export class UserService {
@@ -43,6 +45,8 @@ export class UserService {
     private readonly userApplicationRepository: Repository<UserApplication>,
     private readonly keycloakService: KeycloakService,
     private readonly profilePopulator: ProfilePopulator,
+    private readonly configService: ConfigService,
+    private readonly smsService: SmsService,
   ) {}
 
   async create(createUserDto: CreateUserDto) {
@@ -659,6 +663,30 @@ export class UserService {
       const response = await this.userApplicationRepository.save(
         userApplication,
       );
+      if (response) {
+        const user = await this.userRepository.findOne({
+          where: { user_id: response.user_id },
+        });
+
+        if (!user) {
+          return new ErrorResponse({
+            statusCode: HttpStatus.BAD_REQUEST,
+            errorMessage: `User with ID '${response.user_id}' not found`,
+          });
+        }
+
+        const number = user?.phoneNumber;
+        const dltTemplateId = this.configService.get<string>('SMS_TEMPLATE_ID');
+        const template = this.configService.get<string>(
+          'APPLICATION_SUBMITTED_SMS_TEMPLATE',
+        );
+        const message = template.replace(
+          '{applicationId}',
+          response.external_application_id,
+        );
+
+        await this.smsService.sendSms(number, dltTemplateId, message);
+      }
       return new SuccessResponse({
         statusCode: HttpStatus.OK,
         message: 'User application created successfully.',
