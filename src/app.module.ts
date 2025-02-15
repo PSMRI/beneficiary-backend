@@ -18,6 +18,8 @@ import { Role } from '@entities/role.entity';
 import { UserRole } from '@entities/user_roles.entity';
 import { AuthModule } from '@modules/auth/auth.module';
 import { OtpModule } from '@modules/otp/otp.module';
+import { DocumentVerificationService } from './common/helper/documentVerificationService';
+import { UserDoc } from '@entities/user_docs.entity';
 
 @Module({
   imports: [
@@ -41,7 +43,7 @@ import { OtpModule } from '@modules/otp/otp.module';
         logging: true,
       }),
     }),
-    TypeOrmModule.forFeature([ResponseCache, User, UserRole, Role]),
+    TypeOrmModule.forFeature([ResponseCache, User, UserRole, Role, UserDoc]),
     {
       ...HttpModule.register({}),
       global: true,
@@ -60,6 +62,7 @@ import { OtpModule } from '@modules/otp/otp.module';
     LoggerService,
     ContentService,
     EncryptionService,
+    DocumentVerificationService,
   ],
 })
 export class AppModule {}

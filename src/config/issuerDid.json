@@ -1,0 +1,30 @@
+{
+  "@context": "https://w3id.org/did/v1",
+  "id": "did:rcw:5353ff0f-61bc-41d7-a01b-a23c46965ec1",
+  "alsoKnownAs": ["manoj_l+ubi-tekdi-creds-provider-test3@techjoomla.com"],
+  "service": [
+    {
+      "id": "IdentityHub",
+      "type": "IdentityHub",
+      "serviceEndpoint": {
+        "@context": "schema.identity.foundation/hub",
+        "@type": "UserServiceEndpoint",
+        "instance": ["did:test:hub.id"]
+      }
+    }
+  ],
+  "verificationMethod": [
+    {
+      "id": "auth-key",
+      "type": "Ed25519Signature2020",
+      "publicKeyJwk": {
+        "kty": "EC",
+        "crv": "secp256k1",
+        "x": "sF9UjuB9DxDgiRzFsb3qM68pFj1NSGavUXmZj_ZglCg",
+        "y": "WYgR07-RENGn1o08Me0Nk7FQ0iuWJhTySQrJuZwvWy8"
+      },
+      "controller": "did:rcw:5353ff0f-61bc-41d7-a01b-a23c46965ec1"
+    }
+  ],
+  "authentication": ["auth-key"]
+}
