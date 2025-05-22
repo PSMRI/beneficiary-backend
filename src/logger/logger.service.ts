@@ -3,7 +3,7 @@ import * as winston from 'winston';
 
 @Injectable()
 export class LoggerService {
-  private logger: winston.Logger;
+  private readonly logger: winston.Logger;
 
   constructor() {
     this.logger = winston.createLogger({

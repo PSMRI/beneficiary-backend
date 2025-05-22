@@ -14,36 +14,44 @@ export default class ProfilePopulatorCron {
 
   // Get users from database based on conditions
   private async getUsers() {
-    const users = await this.userRepository
+    try {
+      const users = await this.userRepository
       .createQueryBuilder('user')
       .orderBy(
         `CASE
-                  WHEN user.fieldsVerified IS NULL THEN 0
-                  WHEN user.fieldsVerified = false AND user.fieldsVerifiedAt IS NOT NULL THEN 1
-                  ELSE 2
-              END`,
+            WHEN user.fieldsVerified IS NULL THEN 0
+            WHEN user.fieldsVerified = false AND user.fieldsVerifiedAt IS NOT NULL THEN 1
+            ELSE 2
+          END`,
         'ASC',
       )
       .addOrderBy(
         `CASE
-                  WHEN user.fieldsVerifiedAt IS NULL THEN "user"."updated_at"
-                  ELSE "user"."fieldsVerifiedAt"
-              END`,
+            WHEN user.fieldsVerifiedAt IS NULL THEN "user"."updated_at"
+            ELSE "user"."fieldsVerifiedAt"
+          END`,
         'ASC',
       )
       .take(10)
       .getMany();
 
-    return users;
+      return users;
+    } catch (error) {
+      console.error("Error fetching users: ", error);
+      Logger.error("Error fetching users in 'getUsers': ", error);
+      throw error;
+    }
   }
 
   @Cron('*/5 * * * *')
   async populateProfile() {
     try {
+      console.log("Profile Populator CRON started " + new Date());
       const users = await this.getUsers();
       await this.profilePopulator.populateProfile(users);
     } catch (error) {
       Logger.error("Error in 'Profile Populator CRON': ", error);
+      throw new Error("Error in 'Profile Populator CRON': " + error);
     }
   }
 }

@@ -1,4 +1,3 @@
-import { HttpService } from '@nestjs/axios';
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import axios from 'axios';
 import { ErrorResponse } from 'src/common/responses/error-response';
@@ -6,16 +5,15 @@ import { SuccessResponse } from 'src/common/responses/success-response';
 
 @Injectable()
 export class HasuraService {
-  private hasurastate = process.env.HASURA_state;
-  private adminSecretKey = process.env.HASURA_GRAPHQL_ADMIN_SECRET;
-  private cache_db = process.env.CACHE_DB;
-  private response_cache_db = process.env.RESPONSE_CACHE_DB;
-  private seeker_db = process.env.SEEKER_DB;
-  private order_db = process.env.ORDER_DB;
-  private telemetry_db = process.env.TELEMETRY_DB;
-  private url = process.env.HASURA_URL;
+  private readonly adminSecretKey = process.env.HASURA_GRAPHQL_ADMIN_SECRET;
+  private readonly cache_db = process.env.CACHE_DB;
+  private readonly response_cache_db = process.env.RESPONSE_CACHE_DB;
+  private readonly seeker_db = process.env.SEEKER_DB;
+  private readonly order_db = process.env.ORDER_DB;
+  private readonly telemetry_db = process.env.TELEMETRY_DB;
+  private readonly url = process.env.HASURA_URL;
 
-  constructor(private httpService: HttpService) {
+  constructor() {
     console.log('cache_db', this.cache_db);
     console.log('response_cache_db', this.response_cache_db);
   }
@@ -112,7 +110,8 @@ export class HasuraService {
             return false;
         }
       } catch (error) {
-        return false;
+        console.error('Error evaluating condition:', error.message);
+        throw new Error('Error evaluating condition: ' + error.message);
       }
     };
 
@@ -294,6 +293,7 @@ export class HasuraService {
             }
           }
         `;
+
     try {
       return await this.queryDb(query);
     } catch (error) {
@@ -308,6 +308,7 @@ export class HasuraService {
             }
           }
         `;
+
     try {
       return await this.queryDb(query);
     } catch (error) {
@@ -340,24 +341,23 @@ export class HasuraService {
           gender
           age
           phone
-        }
-      
-    }
+        } 
+      }
     }`;
 
     console.log(query);
 
     // Rest of your code to execute the query
-
     try {
       const response = await this.queryDb(query, seeker);
       return response.data[`insert_${this.seeker_db}`].returning[0];
     } catch (error) {
       throw new HttpException(
-        'Unabe to creatre Seeker user',
+        'Unable to create Seeker user',
         HttpStatus.BAD_REQUEST,
       );
     }
+
   }
 
   async findSeekerUser(email) {
@@ -370,11 +370,7 @@ export class HasuraService {
       }
     }
     `;
-
-    console.log(query);
-
     // Rest of your code to execute the query
-
     try {
       const response = await this.queryDb(query);
       return response.data[`${this.seeker_db}`][0];
@@ -399,17 +395,12 @@ export class HasuraService {
       }
     }
     `;
-
-    // console.log(query)
-
-    // Rest of your code to execute the query
-
     try {
       const response = await this.queryDb(query, order);
       return response;
     } catch (error) {
       throw new HttpException(
-        'Unabe to create order user',
+        'Unable to create order user',
         HttpStatus.BAD_REQUEST,
       );
     }
@@ -430,17 +421,13 @@ export class HasuraService {
       }
     }
     `;
-
-    //console.log(query)
-
-    // Rest of your code to execute the query
-
     try {
       const response = await this.queryDb(query);
       return response.data[`${this.order_db}`][0].OrderContentRelationship[0];
     } catch (error) {
       throw new HttpException('Invalid order id', HttpStatus.BAD_REQUEST);
     }
+
   }
 
   async addTelemetry(data) {
@@ -455,14 +442,11 @@ export class HasuraService {
         }
       }
     `;
-
-    console.log(query);
-
     try {
       const response = await this.queryDb(query, data);
       return response;
     } catch (error) {
-      throw new HttpException('Unabe to add telemetry', HttpStatus.BAD_REQUEST);
+      throw new HttpException('Unable to add telemetry', HttpStatus.BAD_REQUEST);
     }
   }
 }

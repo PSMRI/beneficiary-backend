@@ -10,7 +10,7 @@ export class EncryptionService {
   private readonly ivLength = 16; // AES IV size (16 bytes)
 
   // Retrieve secret key from environment variables
-  private readonly secretKey = process.env.ENCRYPTION_KEY || ''; // Must be 32 characters for aes-256-ctr
+  private readonly secretKey = process.env.ENCRYPTION_KEY ?? ''; // Must be 32 characters for aes-256-ctr
 
   constructor() {
     // Validate that the key is correctly set up

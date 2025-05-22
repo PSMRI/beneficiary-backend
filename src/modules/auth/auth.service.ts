@@ -6,6 +6,7 @@ import { SuccessResponse } from 'src/common/responses/success-response';
 import { LoggerService } from 'src/logger/logger.service';
 
 import { KeycloakService } from 'src/services/keycloak/keycloak.service';
+import { LoginDTO } from './dto/login.dto';
 
 const crypto = require('crypto');
 const axios = require('axios');
@@ -22,16 +23,11 @@ export class AuthService {
     private readonly keycloakService: KeycloakService,
     private readonly userService: UserService,
     private readonly loggerService: LoggerService,
-  ) {}
+  ) { }
 
-  public async login(req, response) {
-    const data = {
-      username: req.body.username,
-      password: req.body.password,
-      type: 'login',
-    };
+  public async login(body: LoginDTO) {
 
-    const token = await this.keycloakService.getUserKeycloakToken(data);
+    const token = await this.keycloakService.getUserKeycloakToken(body);
 
     if (token) {
       return new SuccessResponse({
@@ -194,7 +190,7 @@ export class AuthService {
     const trimmedLastName = body?.lastName?.trim();
     const trimmedPhoneNumber = body?.phoneNumber?.trim();
     const password =
-      body?.password?.trim() || process.env.SIGNUP_DEFAULT_PASSWORD;
+      body?.password?.trim() ?? process.env.SIGNUP_DEFAULT_PASSWORD;
 
     return {
       enabled: 'true',

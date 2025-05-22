@@ -4,6 +4,7 @@ import {
   HttpException,
   HttpStatus,
   Injectable,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AxiosRequestConfig } from 'axios';
@@ -11,21 +12,23 @@ import { lastValueFrom, map } from 'rxjs';
 
 @Injectable()
 export class KeycloakService {
-  public keycloak_url = this.configService.get<string>('KEYCLOAK_URL');
-  public keycloak_admin_cli_client_secret = this.configService.get<string>(
-    'KEYCLOAK_ADMIN_CLI_CLIENT_SECRET',
-  );
-  public realm_name_app = this.configService.get<string>(
-    'KEYCLOAK_REALM_NAME_APP',
-  );
-  public client_name_app = this.configService.get<string>(
-    'KEYCLOAK_CLIENT_NAME_APP',
-  );
+
+  private readonly keycloak_url: string;
+  private readonly keycloak_admin_cli_client_secret: string;
+  private readonly realm_name_app: string;
+  private readonly client_name_app: string;
 
   constructor(
-    private configService: ConfigService,
+    private readonly configService: ConfigService,
     private readonly httpService: HttpService,
-  ) {}
+  ) {
+    this.keycloak_url = this.configService.get<string>('KEYCLOAK_URL');
+    this.keycloak_admin_cli_client_secret = this.configService.get<string>(
+      'KEYCLOAK_ADMIN_CLI_CLIENT_SECRET',
+    );
+    this.realm_name_app = this.configService.get<string>('KEYCLOAK_REALM_NAME_APP',);
+    this.client_name_app = this.configService.get<string>('KEYCLOAK_CLIENT_NAME_APP',);
+  }
 
   public async getAdminKeycloakToken() {
     const url = `${this.keycloak_url}/realms/${this.realm_name_app}/protocol/openid-connect/token`;
@@ -44,15 +47,19 @@ export class KeycloakService {
       },
     };
 
-    try {
-      const observable = this.httpService.post(url, payload, config);
-      const promise = observable.toPromise();
-      const response = await promise;
-
-      return response.data;
-    } catch (e) {
-      console.log('getAdminKeycloakToken ==>', e.message);
+    const keycloakData = await this.httpService.axiosRef.post(
+      url,
+      payload,
+      config
+    );
+ 
+    if (keycloakData.status !== 200) {
+      throw new InternalServerErrorException(
+        'Failed to get Keycloak admin token',
+      );
     }
+    return keycloakData.data;
+
   }
 
   public async getUserKeycloakToken(data) {
@@ -72,11 +79,14 @@ export class KeycloakService {
     };
 
     try {
-      const observable = this.httpService.post(url, payload, config);
-      const promise = observable.toPromise();
-      const response = await promise;
-
-      return response.data;
+      const keycloakData = await this.httpService.axiosRef.post(url, payload, config);
+      if (keycloakData.status !== 200) {
+        throw new InternalServerErrorException(
+          'Failed to get Keycloak user token',
+        );
+      }
+     
+      return keycloakData.data;
     } catch (e) {
       console.log('getUserKeycloakToken', e.message);
     }
@@ -370,11 +380,9 @@ export class KeycloakService {
   public async updateUser(
     userId: string,
     updatedData: { [key: string]: any },
+    adminResultData: { [key: string]: any },
   ): Promise<{ [key: string]: any }> {
     try {
-      // Get Keycloak admin access token
-      const adminResultData = await this.getAdminKeycloakToken();
-
       if (adminResultData?.access_token) {
         // Keycloak URL to update user
         const url = `${this.keycloak_url}/admin/realms/${this.realm_name_app}/users/${userId}`;
@@ -403,7 +411,7 @@ export class KeycloakService {
         throw new BadRequestException('Error while fetching admin token!');
       }
     } catch (error) {
-      console.error('Error updating user:', error.message);
+      console.log('Error updating user:', error.message, userId);
       throw new HttpException(error.message, HttpStatus.CONFLICT, {
         cause: error,
       });

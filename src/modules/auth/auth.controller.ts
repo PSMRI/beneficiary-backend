@@ -7,11 +7,11 @@ import {
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
+import { ApiBody, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
-
 import { RegisterDTO } from './dto/register.dto';
-import { ApiBody, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { LoginDTO } from './dto/login.dto';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -40,9 +40,10 @@ export class AuthController {
   }
 
   @Post('/login')
-  @UsePipes(ValidationPipe)
-  public async login(@Req() req: Request, @Res() response: Response) {
-    return await this.authService.login(req, response);
+  @UsePipes(new ValidationPipe())
+  @ApiBody({ type: LoginDTO })
+  public async login(@Body() body: LoginDTO) {
+    return await this.authService.login(body);
   }
 
   @Post('/logout')

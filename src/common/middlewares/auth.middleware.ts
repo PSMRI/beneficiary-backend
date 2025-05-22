@@ -4,7 +4,7 @@ import { jwtDecode } from 'jwt-decode';
 
 @Injectable()
 export class AuthMiddleware implements NestMiddleware {
-  constructor() {}
+  constructor() { }
 
   async use(req: any, res: Response, next: NextFunction) {
     req.mw_roles = [];
@@ -41,21 +41,18 @@ export class AuthMiddleware implements NestMiddleware {
         req.mw_userid = null;
       }
 
-      try {
-        const decoded: any = jwtDecode(authToken);
-        let keycloak_id = decoded.sub;
-        let userId;
+      const decoded: any = jwtDecode(authToken);
+      let keycloak_id = decoded.sub;
 
-        const roles = decoded.resource_access.hasura.roles || [];
-
-        req.mw_userid = keycloak_id;
-        // }
-        if (userId) {
-          req.mw_roles = roles;
-        }
-      } catch (error) {
+      // If keycloak_id is not found in token payload (subject)
+      if (!keycloak_id) {
         req.mw_userid = null;
+        throw new Error('User not found');
       }
+
+      const roles = decoded.resource_access.hasura.roles ?? [];
+      req.mw_roles = roles;
+      req.mw_userid = keycloak_id;
     }
 
     next();

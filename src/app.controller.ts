@@ -44,7 +44,7 @@ export class AppController {
   @UseGuards(AuthGuard)
   async initContent(@Request() request, @Body() body) {
     let endPoint = 'init';
-    console.log('select method calling...');
+    console.log('init method calling...');
     return await this.proxyService.bapCLientApi2(endPoint, body);
   }
 

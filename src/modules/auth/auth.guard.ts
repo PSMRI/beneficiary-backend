@@ -61,6 +61,7 @@ export class AuthGuard implements CanActivate {
       const decoded = jwtDecode(token);
       return decoded;
     } catch (err) {
+      console.error('Token verification failed:', err);
       throw new UnauthorizedException('Invalid token');
     }
   }

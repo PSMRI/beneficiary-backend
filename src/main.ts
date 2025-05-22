@@ -48,7 +48,6 @@ async function bootstrap() {
     .setTitle('UBI Beneficiary API')
     .setDescription('API documentation for UBI Beneficiary')
     .setVersion('1.0')
-    .addServer('/api')
     .addBearerAuth(
       {
         type: 'http',

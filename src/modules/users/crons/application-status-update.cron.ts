@@ -14,7 +14,7 @@ export class ApplicationStatusUpdate {
     private readonly userApplicationRepository: Repository<UserApplication>,
     private readonly configService: ConfigService,
     private readonly proxyService: ProxyService,
-  ) {}
+  ) { }
 
   async getApplications() {
     try {
@@ -83,7 +83,8 @@ export class ApplicationStatusUpdate {
 
       return status;
     } catch (error) {
-      return null;
+      console.error(`Error while getting status from response: ${error}`);
+      throw new Error('Error while getting status from response');
     }
   }
 

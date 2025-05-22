@@ -14,13 +14,13 @@ const crypto = require('crypto');
 
 @Injectable()
 export class ContentService {
-  private domain = process.env.DOMAIN;
-  private bap_id = process.env.BAP_ID;
-  private bap_uri = process.env.BAP_URI;
+  private readonly domain = process.env.DOMAIN;
+  private readonly bap_id = process.env.BAP_ID;
+  private readonly bap_uri = process.env.BAP_URI;
   private readonly bpp_id = process.env.BPP_ID;
   private readonly bpp_uri = process.env.BPP_URI;
-  private response_cache_db = process.env.RESPONSE_CACHE_DB;
-  private telemetry_db = process.env.TELEMETRY_DB;
+  private readonly response_cache_db = process.env.RESPONSE_CACHE_DB;
+  private readonly telemetry_db = process.env.TELEMETRY_DB;
 
   constructor(
     private readonly hasuraService: HasuraService,
@@ -351,8 +351,8 @@ export class ContentService {
     }
 
     if (body.date) {
-      var fromDate = Date.parse(body.date.from);
-      var toDate = Date.parse(body.date.to);
+      const fromDate = Date.parse(body.date.from);
+      const toDate = Date.parse(body.date.to);
 
       query = `SELECT
        events->'edata'->>'pageurl' AS unique_pageurl,
@@ -415,8 +415,8 @@ export class ContentService {
     }
 
     if (body.date) {
-      var fromDate = Date.parse(body.date.from);
-      var toDate = Date.parse(body.date.to);
+      const fromDate = Date.parse(body.date.from);
+      const toDate = Date.parse(body.date.to);
 
       query = `SELECT *
        FROM

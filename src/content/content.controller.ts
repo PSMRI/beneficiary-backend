@@ -7,7 +7,6 @@ import {
   Query,
   Request,
 } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
 import { LoggerService } from 'src/logger/logger.service';
 import { ContentService } from './content.service';
 import { CreateOrderDto } from './dto/create-user.dto';

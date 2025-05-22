@@ -30,15 +30,15 @@ import { OtpModule } from '@modules/otp/otp.module';
       ): Promise<TypeOrmModuleOptions> => ({
         type: configService.get<'postgres' | 'mysql' | 'sqlite' | 'mariadb'>(
           'DB_TYPE',
-        ) as 'postgres' | 'mysql' | 'sqlite' | 'mariadb',
-        host: configService.get<string>('DB_HOST') as string,
+        ),
+        host: configService.get<string>('DB_HOST'),
         port: parseInt(configService.get<string>('DB_PORT'), 10),
-        username: configService.get<string>('DB_USERNAME') as string,
-        password: configService.get<string>('DB_PASSWORD') as string,
-        database: configService.get<string>('DB_NAME') as string,
+        username: configService.get<string>('DB_USERNAME'),
+        password: configService.get<string>('DB_PASSWORD'),
+        database: configService.get<string>('DB_NAME'),
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
         synchronize: false,
-        logging: true,
+        // logging: true,
       }),
     }),
     TypeOrmModule.forFeature([ResponseCache, User, UserRole, Role]),
@@ -62,4 +62,4 @@ import { OtpModule } from '@modules/otp/otp.module';
     EncryptionService,
   ],
 })
-export class AppModule {}
+export class AppModule { }
