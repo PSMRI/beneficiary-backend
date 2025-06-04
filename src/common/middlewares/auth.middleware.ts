@@ -50,7 +50,7 @@ export class AuthMiddleware implements NestMiddleware {
         throw new Error('User not found');
       }
 
-      const roles = decoded.resource_access.hasura.roles ?? [];
+      const roles = decoded?.resource_access?.hasura?.roles ?? [];
       req.mw_roles = roles;
       req.mw_userid = keycloak_id;
     }

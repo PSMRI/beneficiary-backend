@@ -19,10 +19,9 @@ export class HasuraService {
   }
 
   async findJobsCache(requestBody) {
-    console.log('searching jobs from ' + this.cache_db);
-
-    const { filters, search } = requestBody;
-    const query = `query MyQuery {
+		const { filters, search } = requestBody;
+		
+		const query = `query MyQuery {
            ${this.cache_db}(distinct_on: unique_id) {
             id
             unique_id
@@ -40,28 +39,28 @@ export class HasuraService {
             fulfillments
           }
           }`;
-    try {
-      const response = await this.queryDb(query);
-      const jobs = response.data[this.cache_db];
+		try {
+			const response = await this.queryDb(query);
+			const jobs = response.data[this.cache_db];
 
-      const filteredJobs = this.filterJobs(jobs, filters, search);
+			let filteredJobs = this.filterJobs(jobs, filters, search);
 
-      // Return the response in the desired format
-      return new SuccessResponse({
-        statusCode: HttpStatus.OK,
-        message: 'Ok.',
-        data: {
-          ubi_network_cache: filteredJobs,
-        },
-      });
-    } catch (error) {
-      //this.logger.error("Something Went wrong in creating Admin", error);
-      return new ErrorResponse({
-        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-        errorMessage: error.message, // Use error message if available
-      });
-    }
-  }
+			return new SuccessResponse({
+				statusCode: HttpStatus.OK,
+				message: 'Ok.',
+
+				data: {
+					ubi_network_cache: filteredJobs,
+				},
+			});
+		} catch (error) {
+			//this.logger.error("Something Went wrong in creating Admin", error);
+			return new ErrorResponse({
+				statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+				errorMessage: error.message, // Use error message if available
+			});
+		}
+	}
 
   filterJobs(jobs, filters, search) {
     if (!filters && !search) return jobs;
@@ -449,4 +448,6 @@ export class HasuraService {
       throw new HttpException('Unable to add telemetry', HttpStatus.BAD_REQUEST);
     }
   }
+
+
 }

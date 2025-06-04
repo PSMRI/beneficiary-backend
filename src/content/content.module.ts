@@ -8,10 +8,10 @@ import { ContentService } from './content.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ResponseCache } from 'src/entity/response.entity';
 import { EncryptionService } from 'src/common/helper/encryptionService';
-
+import { UserModule } from '../modules/users/users.module';
 
 @Module({
-  imports: [ScheduleModule.forRoot(), TypeOrmModule.forFeature([ResponseCache])],
+  imports: [ScheduleModule.forRoot(), TypeOrmModule.forFeature([ResponseCache]), UserModule],
   controllers: [ContentController],
   providers: [ContentService, HasuraService, ProxyService, LoggerService,EncryptionService]
 })

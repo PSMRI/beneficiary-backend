@@ -34,5 +34,6 @@ import { ProxyService } from '@services/proxy/proxy.service';
     ApplicationStatusUpdate,
     ProxyService,
   ],
+   exports: [UserService],
 })
 export class UserModule {}
