@@ -18,48 +18,50 @@ import { Role } from '@entities/role.entity';
 import { UserRole } from '@entities/user_roles.entity';
 import { AuthModule } from '@modules/auth/auth.module';
 import { OtpModule } from '@modules/otp/otp.module';
+import { AdminModule } from './modules/admin/admin.module';
 
 @Module({
-  imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
-    TypeOrmModule.forRootAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: async (
-        configService: ConfigService,
-      ): Promise<TypeOrmModuleOptions> => ({
-        type: configService.get<'postgres' | 'mysql' | 'sqlite' | 'mariadb'>(
-          'DB_TYPE',
-        ),
-        host: configService.get<string>('DB_HOST'),
-        port: parseInt(configService.get<string>('DB_PORT'), 10),
-        username: configService.get<string>('DB_USERNAME'),
-        password: configService.get<string>('DB_PASSWORD'),
-        database: configService.get<string>('DB_NAME'),
-        entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: false,
-        // logging: true,
-      }),
-    }),
-    TypeOrmModule.forFeature([ResponseCache, User, UserRole, Role]),
-    {
-      ...HttpModule.register({}),
-      global: true,
-    },
-    ContentModule,
-    UserModule,
-    UserRolesModule,
-    AuthModule,
-    OtpModule,
-  ],
-  controllers: [AppController],
-  providers: [
-    AppService,
-    HasuraService,
-    ProxyService,
-    LoggerService,
-    ContentService,
-    EncryptionService,
-  ],
+	imports: [
+		ConfigModule.forRoot({ isGlobal: true }),
+		TypeOrmModule.forRootAsync({
+			imports: [ConfigModule],
+			inject: [ConfigService],
+			useFactory: async (
+				configService: ConfigService,
+			): Promise<TypeOrmModuleOptions> => ({
+				type: configService.get<'postgres' | 'mysql' | 'sqlite' | 'mariadb'>(
+					'DB_TYPE',
+				),
+				host: configService.get<string>('DB_HOST'),
+				port: parseInt(configService.get<string>('DB_PORT'), 10),
+				username: configService.get<string>('DB_USERNAME'),
+				password: configService.get<string>('DB_PASSWORD'),
+				database: configService.get<string>('DB_NAME'),
+				entities: [__dirname + '/**/*.entity{.ts,.js}'],
+				synchronize: false,
+				// logging: true,
+			}),
+		}),
+		TypeOrmModule.forFeature([ResponseCache, User, UserRole, Role]),
+		{
+			...HttpModule.register({}),
+			global: true,
+		},
+		ContentModule,
+		UserModule,
+		UserRolesModule,
+		AuthModule,
+		OtpModule,
+		AdminModule,
+	],
+	controllers: [AppController],
+	providers: [
+		AppService,
+		HasuraService,
+		ProxyService,
+		LoggerService,
+		ContentService,
+		EncryptionService,
+	],
 })
-export class AppModule { }
+export class AppModule {}
