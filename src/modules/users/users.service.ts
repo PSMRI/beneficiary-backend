@@ -15,7 +15,6 @@ import { CreateUserDocDTO } from './dto/user_docs.dto';
 import { UserDoc } from '@entities/user_docs.entity';
 import { CreateUserInfoDto } from './dto/create-user-info.dto';
 import { UserInfo } from '@entities/user_info.entity';
-import { EncryptionService } from 'src/common/helper/encryptionService';
 import { Consent } from '@entities/consent.entity';
 import { CreateConsentDto } from './dto/create-consent.dto';
 import { UserApplication } from '@entities/user_applications.entity';
@@ -38,7 +37,6 @@ export class UserService {
     private readonly userDocsRepository: Repository<UserDoc>,
     @InjectRepository(UserInfo)
     private readonly userInfoRepository: Repository<UserInfo>,
-    private readonly encryptionService: EncryptionService,
     @InjectRepository(Consent)
     private readonly consentRepository: Repository<Consent>,
     @InjectRepository(UserApplication)
@@ -52,10 +50,13 @@ export class UserService {
     try {
       const savedUser = await this.userRepository.save(user);
 
+      // Fetch the user again to trigger decryption
+      const savedUserData = await this.userRepository.findOne({ where: { user_id: savedUser.user_id } });
+
       return new SuccessResponse({
         statusCode: HttpStatus.OK, // Created
         message: 'User created successfully.',
-        data: savedUser,
+        data: savedUserData,
       });
     } catch (error) {
       return new ErrorResponse({
@@ -222,24 +223,7 @@ export class UserService {
       where: { user_id },
     });
 
-    type EncryptedStringFields = 'aadhaar' | 'udid' | 'bankAccountNumber';
-
-    if (userInfo && decryptData) {
-      const encryptedFields: EncryptedStringFields[] = [
-        'aadhaar',
-        'udid',
-        'bankAccountNumber',
-      ];
-
-      encryptedFields.forEach((field) => {
-        const value = userInfo[field];
-        if (typeof value === 'string' && value.includes(':')) {
-          const decrypted = this.encryptionService.decrypt(value);
-          userInfo[field] = decrypted as string;
-        }
-      });
-    }
-
+    // No manual decryption needed - transformer handles it automatically
     return userInfo;
   }
 
@@ -249,15 +233,11 @@ export class UserService {
     // Retrieve the document subtypes set from the DocumentListProvider
     const documentTypes = DocumentListProvider.getDocumentSubTypesSet();
 
-    if (decryptData) {
-      return userDocs.map((doc) => ({
-        ...doc,
-        doc_data: this.encryptionService.decrypt(doc.doc_data),
-        is_uploaded: documentTypes.has(doc.doc_subtype),
-      }));
-    }
-
-    return userDocs;
+    // No manual decryption needed - transformer handles it automatically
+    return userDocs.map((doc) => ({
+      ...doc,
+      is_uploaded: documentTypes.has(doc.doc_subtype),
+    }));
   }
 
   async findUserConsent(user_id: string): Promise<any> {
@@ -311,23 +291,23 @@ export class UserService {
       sso_id: body.keycloak_id,
       created_at: new Date(),
     });
-    return await this.userRepository.save(user);
+    const savedUser = await this.userRepository.save(user);
+
+    // Fetch the user again to trigger decryption via afterLoad
+    return await this.userRepository.findOne({ where: { user_id: savedUser.user_id } });
   }
   // User docs save
   async createUserDoc(createUserDocDto: CreateUserDocDTO) {
     try {
+      // Convert object to JSON string if needed - transformer will handle encryption
       if (
         createUserDocDto.doc_data &&
         typeof createUserDocDto.doc_data !== 'string'
       ) {
-        const jsonDataString = JSON.stringify(createUserDocDto.doc_data);
-
-        // Encrypt the JSON string
-        createUserDocDto.doc_data =
-          this.encryptionService.encrypt(jsonDataString);
+        createUserDocDto.doc_data = JSON.stringify(createUserDocDto.doc_data);
       }
 
-      // Ensure doc_data is always a string when calling create
+      // Create and save - transformer handles encryption automatically
       const newUserDoc = this.userDocsRepository.create({
         ...createUserDocDto,
         doc_data: createUserDocDto.doc_data as string,
@@ -430,11 +410,8 @@ export class UserService {
           createUserDocDto.doc_data &&
           typeof createUserDocDto.doc_data !== 'string'
         ) {
-          const jsonDataString = JSON.stringify(createUserDocDto.doc_data);
-
-          // Encrypt the JSON string
-          createUserDocDto.doc_data =
-            this.encryptionService.encrypt(jsonDataString);
+          // Convert to JSON string - transformer will handle encryption
+          createUserDocDto.doc_data = JSON.stringify(createUserDocDto.doc_data);
         }
 
         // Create the new document entity for the database
@@ -563,14 +540,14 @@ export class UserService {
         Logger.error('Error processing document:', error);
         throw error;
       }
-    }
-
-    // Update profile based on documents
+    }    // Update profile based on documents
     try {
+      console.log('Starting profile update...');
       await this.updateProfile(userDetails);
+      console.log('Profile update completed successfully');
     } catch (error) {
       Logger.error('Profile update failed:', error);
-      }
+    }
 
     return savedDocs;
   }
@@ -628,8 +605,8 @@ export class UserService {
           ? createUserDocDto.doc_data 
           : JSON.stringify(createUserDocDto.doc_data);
 
-      // Encrypt the JSON string
-      createUserDocDto.doc_data = this.encryptionService.encrypt(dataString);
+      // Transformer will handle encryption automatically
+      createUserDocDto.doc_data = dataString;
     }
 
     if (!createUserDocDto?.user_id) {
@@ -659,12 +636,7 @@ export class UserService {
         // Assign the user_id from userData to createUserInfoDto
         createUserInfoDto.user_id = userData.user.user_id;
 
-        // Encrypt the aadhaar before saving
-        const encrypted = this.encryptionService.encrypt(
-          createUserInfoDto.aadhaar,
-        );
-        createUserInfoDto.aadhaar = encrypted;
-
+        // Transformer will handle encryption automatically
         // Create and save the new UserInfo record
         const userInfo = this.userInfoRepository.create(createUserInfoDto);
         return await this.userInfoRepository.save(userInfo);
@@ -687,13 +659,7 @@ export class UserService {
       where: { user_id },
     });
 
-    if (updateUserInfoDto?.aadhaar) {
-      const encrypted = this.encryptionService.encrypt(
-        updateUserInfoDto?.aadhaar,
-      );
-
-      updateUserInfoDto.aadhaar = encrypted;
-    }
+    // Transformer will handle encryption automatically for aadhaar field
     Object.assign(userInfo, updateUserInfoDto);
     console.log('userInfo--->>', userInfo);
     return this.userInfoRepository.save(userInfo);
@@ -709,10 +675,7 @@ export class UserService {
     createUserApplicationDto: CreateUserApplicationDto,
   ) {
     try {
-      const encrypted = this.encryptionService.encrypt(
-        createUserApplicationDto.application_data,
-      );
-      createUserApplicationDto.application_data = { encrypted };
+      // Transformer will handle encryption automatically
       const userApplication = this.userApplicationRepository.create(
         createUserApplicationDto,
       );
@@ -739,10 +702,7 @@ export class UserService {
         `Application with ID '${internal_application_id}' not found`,
       );
     }
-    const decrypted = this.encryptionService.decrypt(
-      userApplication?.application_data?.encrypted,
-    );
-    userApplication.application_data = decrypted;
+    // Transformer handles decryption automatically
     return new SuccessResponse({
       statusCode: HttpStatus.OK,
       message: 'User application retrieved successfully.',
@@ -790,21 +750,7 @@ export class UserService {
           take: limit,
         });
 
-      // Decrypt data in parallel
-      if (userApplication.length > 0) {
-        await Promise.all(
-          userApplication.map(async (item) => {
-            try {
-              const decrypted = this.encryptionService.decrypt(
-                item?.application_data?.encrypted,
-              );
-              item.application_data = decrypted;
-            } catch (decryptionError) {
-              console.error('Error decrypting data:', decryptionError);
-            }
-          }),
-        );
-      }
+      // Transformer handles decryption automatically - no manual decryption needed
 
       return new SuccessResponse({
         statusCode: HttpStatus.OK,

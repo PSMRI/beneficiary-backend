@@ -5,6 +5,7 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { EncryptionTransformer } from '../common/helper/encryptionTransformer';
 
 @Entity('user_applications')
 export class UserApplication {
@@ -32,7 +33,7 @@ export class UserApplication {
   @Column({ type: 'varchar', length: 20 })
   status: string;
 
-  @Column({ type: 'jsonb' })
+  @Column({ type: 'jsonb', transformer: EncryptionTransformer })
   application_data: Record<string, any>;
 
   @CreateDateColumn({ type: 'timestamptz' })

@@ -5,6 +5,7 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { EncryptionTransformer } from '../common/helper/encryptionTransformer';
 
 @Entity('user_info')
 export class UserInfo {
@@ -35,10 +36,10 @@ export class UserInfo {
   @Column({ type: 'varchar', length: 50, nullable: true })
   studentType: string;
 
-  @Column({ type: 'varchar', length: 50, nullable: true })
+  @Column({ type: 'varchar', length: 50, nullable: true, transformer: EncryptionTransformer })
   aadhaar: string;
 
-  @Column({ type: 'varchar', length: 50, nullable: true })
+  @Column({ type: 'varchar', length: 50, nullable: true  })
   caste: string;
 
   @Column({ type: 'numeric', precision: 10, scale: 2, nullable: true })
@@ -71,7 +72,7 @@ export class UserInfo {
   @Column({ type: 'varchar', length: 50, nullable: true })
   bankName: string;
 
-  @Column({ type: 'varchar', length: 255, nullable: true })
+  @Column({ type: 'varchar', length: 255, nullable: true, transformer: EncryptionTransformer })
   bankAccountNumber: string;
 
   @Column({ type: 'varchar', length: 50, nullable: true })
@@ -83,7 +84,7 @@ export class UserInfo {
   @Column({ type: 'varchar', length: 50, nullable: true })
   branchCode: string;
 
-  @Column({ type: 'varchar', length: 255, nullable: true })
+  @Column({ type: 'varchar', length: 255, nullable: true, transformer: EncryptionTransformer })
   udid: string;
 
   @Column({ type: 'varchar', length: 255, nullable: true })

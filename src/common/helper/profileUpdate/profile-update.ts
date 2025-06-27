@@ -6,7 +6,6 @@ import { readFile } from 'fs/promises';
 import * as path from 'path';
 import { InjectRepository } from '@nestjs/typeorm'; 
 import { Repository } from 'typeorm';
-import { EncryptionService } from 'src/common/helper/encryptionService';
 import { parse, format, isValid } from 'date-fns';
 import { KeycloakService } from '@services/keycloak/keycloak.service';
 
@@ -18,7 +17,6 @@ export default class ProfilePopulator {
     private readonly userDocRepository: Repository<UserDoc>,
     @InjectRepository(UserInfo)
     private readonly userInfoRepository: Repository<UserInfo>,
-    private readonly encryptionService: EncryptionService,
     private readonly keycloakService: KeycloakService,
   ) {}
 
@@ -82,16 +80,13 @@ export default class ProfilePopulator {
     // Build VC array
     for (const doc of userDocs) {
       const docType = doc.doc_subtype;
-      let decryptedData: any;
+      let docData: any;
       try {
-        decryptedData = await this.encryptionService.decrypt(doc.doc_data);
-        const content = JSON.parse(decryptedData);
-        vcs.push({ docType, content });
+        // doc.doc_data is already decrypted by the transformer
+        docData = typeof doc.doc_data === 'string' ? JSON.parse(doc.doc_data) : doc.doc_data;
+        vcs.push({ docType, content: docData });
       } catch (error) {
-        const errorMessage =
-          error instanceof SyntaxError
-            ? `Invalid JSON format in doc ${doc.id}`
-            : `Decryption failed for doc ${doc.id}`;
+        const errorMessage = `Invalid JSON format in doc ${doc.doc_id}`;
         Logger.error(`${errorMessage}:`, error);
         continue;
       }
@@ -180,8 +175,7 @@ export default class ProfilePopulator {
     let value = this.getValue(vc, pathValue);
     if (!value) return null;
 
-    value = this.encryptionService.encrypt(value);
-
+    // Return the value directly - it will be encrypted by the transformer when saved
     return value;
   }
 

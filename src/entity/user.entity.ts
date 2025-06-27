@@ -6,6 +6,7 @@ import {
   UpdateDateColumn,
   Unique,
 } from 'typeorm';
+import { EncryptionTransformer } from '../common/helper/encryptionTransformer';
 
 @Entity('users')
 @Unique(['user_id', 'email'])
@@ -25,7 +26,7 @@ export class User {
   @Column({ length: 100, unique: true })
   email: string;
 
-  @Column({ length: 100, nullable: true })
+  @Column({ length: 100, nullable: true, transformer: EncryptionTransformer, })
   phoneNumber: string;
 
   @Column({ type: 'date', nullable: true })

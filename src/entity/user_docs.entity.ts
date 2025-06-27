@@ -7,6 +7,7 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { User } from './user.entity';
+import { EncryptionTransformer } from '../common/helper/encryptionTransformer';
 
 @Entity('user_docs')
 export class UserDoc {
@@ -35,7 +36,7 @@ export class UserDoc {
   @Column({ type: 'varchar', length: 255, nullable: true })
   doc_path: string;
 
-  @Column({ type: 'text', nullable: true })
+  @Column({ type: 'text', nullable: true, transformer: EncryptionTransformer })
   doc_data: string;
 
   @Column({ type: 'varchar', length: 100 })
