@@ -15,7 +15,6 @@ import { CreateUserDocDTO } from './dto/user_docs.dto';
 import { UserDoc } from '@entities/user_docs.entity';
 import { CreateUserInfoDto } from './dto/create-user-info.dto';
 import { UserInfo } from '@entities/user_info.entity';
-import { EncryptionService } from 'src/common/helper/encryptionService';
 import { Consent } from '@entities/consent.entity';
 import { CreateConsentDto } from './dto/create-consent.dto';
 import { UserApplication } from '@entities/user_applications.entity';
@@ -38,7 +37,6 @@ export class UserService {
     private readonly userDocsRepository: Repository<UserDoc>,
     @InjectRepository(UserInfo)
     private readonly userInfoRepository: Repository<UserInfo>,
-    private readonly encryptionService: EncryptionService,
     @InjectRepository(Consent)
     private readonly consentRepository: Repository<Consent>,
     @InjectRepository(UserApplication)
@@ -222,24 +220,6 @@ export class UserService {
       where: { user_id },
     });
 
-    type EncryptedStringFields = 'aadhaar' | 'udid' | 'bankAccountNumber';
-
-    if (userInfo && decryptData) {
-      const encryptedFields: EncryptedStringFields[] = [
-        'aadhaar',
-        'udid',
-        'bankAccountNumber',
-      ];
-
-      encryptedFields.forEach((field) => {
-        const value = userInfo[field];
-        if (typeof value === 'string' && value.includes(':')) {
-          const decrypted = this.encryptionService.decrypt(value);
-          userInfo[field] = decrypted as string;
-        }
-      });
-    }
-
     return userInfo;
   }
 
@@ -249,15 +229,10 @@ export class UserService {
     // Retrieve the document subtypes set from the DocumentListProvider
     const documentTypes = DocumentListProvider.getDocumentSubTypesSet();
 
-    if (decryptData) {
-      return userDocs.map((doc) => ({
-        ...doc,
-        doc_data: this.encryptionService.decrypt(doc.doc_data),
-        is_uploaded: documentTypes.has(doc.doc_subtype),
-      }));
-    }
-
-    return userDocs;
+    return userDocs.map((doc) => ({
+      ...doc,
+      is_uploaded: documentTypes.has(doc.doc_subtype),
+    }));
   }
 
   async findUserConsent(user_id: string): Promise<any> {
@@ -316,21 +291,9 @@ export class UserService {
   // User docs save
   async createUserDoc(createUserDocDto: CreateUserDocDTO) {
     try {
-      if (
-        createUserDocDto.doc_data &&
-        typeof createUserDocDto.doc_data !== 'string'
-      ) {
-        const jsonDataString = JSON.stringify(createUserDocDto.doc_data);
-
-        // Encrypt the JSON string
-        createUserDocDto.doc_data =
-          this.encryptionService.encrypt(jsonDataString);
-      }
-
-      // Ensure doc_data is always a string when calling create
       const newUserDoc = this.userDocsRepository.create({
         ...createUserDocDto,
-        doc_data: createUserDocDto.doc_data as string,
+        doc_data: createUserDocDto.doc_data,
       });
 
       const savedUserDoc = await this.userDocsRepository.save(newUserDoc);
@@ -368,7 +331,7 @@ export class UserService {
   async saveDoc(createUserDocDto: CreateUserDocDTO) {
     const newUserDoc = this.userDocsRepository.create({
       ...createUserDocDto,
-      doc_data: createUserDocDto.doc_data as string,
+      doc_data: createUserDocDto.doc_data,
     });
 
     // Save to the database
@@ -426,16 +389,6 @@ export class UserService {
           `Document already exists for user_id: ${createUserDocDto.user_id}, doc_type: ${createUserDocDto.doc_type}, doc_subtype: ${createUserDocDto.doc_subtype}`,
         );
       } else {
-        if (
-          createUserDocDto.doc_data &&
-          typeof createUserDocDto.doc_data !== 'string'
-        ) {
-          const jsonDataString = JSON.stringify(createUserDocDto.doc_data);
-
-          // Encrypt the JSON string
-          createUserDocDto.doc_data =
-            this.encryptionService.encrypt(jsonDataString);
-        }
 
         // Create the new document entity for the database
         const savedDoc = await this.saveDoc(createUserDocDto);
@@ -622,15 +575,7 @@ export class UserService {
 
     if (existingDoc) await this.deleteDoc(existingDoc);
 
-    if (createUserDocDto.doc_data) {
-      const dataString =
-        typeof createUserDocDto.doc_data === 'string'
-          ? createUserDocDto.doc_data 
-          : JSON.stringify(createUserDocDto.doc_data);
 
-      // Encrypt the JSON string
-      createUserDocDto.doc_data = this.encryptionService.encrypt(dataString);
-    }
 
     if (!createUserDocDto?.user_id) {
       createUserDocDto.user_id = userDetails?.user_id;
@@ -659,12 +604,6 @@ export class UserService {
         // Assign the user_id from userData to createUserInfoDto
         createUserInfoDto.user_id = userData.user.user_id;
 
-        // Encrypt the aadhaar before saving
-        const encrypted = this.encryptionService.encrypt(
-          createUserInfoDto.aadhaar,
-        );
-        createUserInfoDto.aadhaar = encrypted;
-
         // Create and save the new UserInfo record
         const userInfo = this.userInfoRepository.create(createUserInfoDto);
         return await this.userInfoRepository.save(userInfo);
@@ -687,13 +626,6 @@ export class UserService {
       where: { user_id },
     });
 
-    if (updateUserInfoDto?.aadhaar) {
-      const encrypted = this.encryptionService.encrypt(
-        updateUserInfoDto?.aadhaar,
-      );
-
-      updateUserInfoDto.aadhaar = encrypted;
-    }
     Object.assign(userInfo, updateUserInfoDto);
     console.log('userInfo--->>', userInfo);
     return this.userInfoRepository.save(userInfo);
@@ -709,10 +641,6 @@ export class UserService {
     createUserApplicationDto: CreateUserApplicationDto,
   ) {
     try {
-      const encrypted = this.encryptionService.encrypt(
-        createUserApplicationDto.application_data,
-      );
-      createUserApplicationDto.application_data = { encrypted };
       const userApplication = this.userApplicationRepository.create(
         createUserApplicationDto,
       );
@@ -739,10 +667,6 @@ export class UserService {
         `Application with ID '${internal_application_id}' not found`,
       );
     }
-    const decrypted = this.encryptionService.decrypt(
-      userApplication?.application_data?.encrypted,
-    );
-    userApplication.application_data = decrypted;
     return new SuccessResponse({
       statusCode: HttpStatus.OK,
       message: 'User application retrieved successfully.',
@@ -790,21 +714,6 @@ export class UserService {
           take: limit,
         });
 
-      // Decrypt data in parallel
-      if (userApplication.length > 0) {
-        await Promise.all(
-          userApplication.map(async (item) => {
-            try {
-              const decrypted = this.encryptionService.decrypt(
-                item?.application_data?.encrypted,
-              );
-              item.application_data = decrypted;
-            } catch (decryptionError) {
-              console.error('Error decrypting data:', decryptionError);
-            }
-          }),
-        );
-      }
 
       return new SuccessResponse({
         statusCode: HttpStatus.OK,

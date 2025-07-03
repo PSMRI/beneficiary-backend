@@ -73,7 +73,7 @@ export class CreateUserDocDTO {
     required: false,
   })
   @IsOptional()
-  doc_data?: Record<string, any> | string;
+  doc_data?: any; // Can be object, array, or null
 
   @ApiProperty({
     description: 'The datatype of the document (e.g. PDF, JPG,JSON)',

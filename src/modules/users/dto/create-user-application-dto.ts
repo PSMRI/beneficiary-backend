@@ -78,5 +78,5 @@ export class CreateUserApplicationDto {
     required: false,
   })
   @IsOptional() // Optional
-  application_data?: Record<string, any>; // Optional
+  application_data?: any;  // Can be object, array, or null
 }
