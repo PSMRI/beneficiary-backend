@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { HttpModule } from '@nestjs/axios';
 import { UserController } from '@modules/users/users.controller';
 import { UserService } from '@modules/users/users.service';
 import { User } from '@entities/user.entity';
@@ -13,7 +14,7 @@ import ProfilePopulatorCron from './crons/profile-populator.cron';
 import ProfilePopulator from 'src/common/helper/profileUpdate/profile-update';
 import { ApplicationStatusUpdate } from './crons/application-status-update.cron';
 import { ProxyService } from '@services/proxy/proxy.service';
-
+import { UsersXref } from '@entities/users_xref.entity';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -22,7 +23,9 @@ import { ProxyService } from '@services/proxy/proxy.service';
       UserInfo,
       Consent,
       UserApplication,
+      UsersXref,
     ]),
+    HttpModule,
   ],
   controllers: [UserController],
   providers: [

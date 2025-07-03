@@ -61,7 +61,9 @@ async function bootstrap() {
 
   const document = SwaggerModule.createDocument(app, config);
   // Route for Swagger UI
-  SwaggerModule.setup('/docs', app, document);
+  SwaggerModule.setup('/docs', app, document,{
+    customSiteTitle: 'UBI Beneficiary API Documentation',
+  });
 
   // Increase the request body size limit
   app.use(bodyParser.json({ limit: '50mb' }));

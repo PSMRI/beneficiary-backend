@@ -1,4 +1,5 @@
-import { User } from '@entities/user.entity';
+// import { User } from '@entities/user.entity';
+import { UsersXref } from '@entities/users_xref.entity';
 import { UserDoc } from '@entities/user_docs.entity';
 import { UserInfo } from '@entities/user_info.entity';
 import { Injectable, Logger } from '@nestjs/common';
@@ -13,7 +14,8 @@ import { KeycloakService } from '@services/keycloak/keycloak.service';
 @Injectable()
 export default class ProfilePopulator {
   constructor(
-    @InjectRepository(User) private readonly userRepository: Repository<User>,
+    // @InjectRepository(User) private readonly userRepository: Repository<User>,
+    @InjectRepository(UsersXref) private readonly usersXrefRepository: Repository<UsersXref>,
     @InjectRepository(UserDoc)
     private readonly userDocRepository: Repository<UserDoc>,
     @InjectRepository(UserInfo)
@@ -101,10 +103,10 @@ export default class ProfilePopulator {
   }
 
   // Get user documents from database
-  private async getUserDocs(user: any) {
+  private async getUserDocs(userId: any) {
     const userDocs = await this.userDocRepository.find({
       where: {
-        user_id: user.user_id,
+        user_id: userId,
       },
     });
 
@@ -417,7 +419,7 @@ export default class ProfilePopulator {
     user.fieldsVerificationData = null;
 
     const queryRunner1 =
-      this.userRepository.manager.connection.createQueryRunner();
+      this.usersXrefRepository.manager.connection.createQueryRunner();
     await queryRunner1.connect();
     await queryRunner1.startTransaction();
     try {
@@ -450,7 +452,7 @@ export default class ProfilePopulator {
     await this.handleUserInfo(user, userInfo);
 
     const queryRunner =
-      this.userRepository.manager.connection.createQueryRunner();
+      this.usersXrefRepository.manager.connection.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
     try {
@@ -482,7 +484,7 @@ export default class ProfilePopulator {
       for (const user of users) {
         try {
           // Get documents from database
-          const userDocs = await this.getUserDocs(user);
+          const userDocs = await this.getUserDocs(user); // uses user id
 
           // Build VCs in required format
           const vcs = await this.buildVCs(userDocs);
@@ -498,6 +500,7 @@ export default class ProfilePopulator {
         }
       }
     } catch (error) {
+      console.error("Error in 'Profile Populator CRON': ", error);
       Logger.error("Error in 'Profile Populator CRON': ", error);
       return error;
     }

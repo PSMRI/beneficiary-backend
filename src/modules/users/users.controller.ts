@@ -215,4 +215,34 @@ export class UserController {
   async fetchVcJson(@Body() fetchVcUrlDto: FetchVcUrlDto) {
     return await this.userService.fetchVcJsonFromUrl(fetchVcUrlDto.url);
   }
+
+  @Get('/read/:userId')
+  @UseGuards(AuthGuard)
+  @ApiBasicAuth('access-token')
+  @ApiOperation({ summary: 'Get user details by user ID and field value' })
+  @ApiResponse({ status: 200, description: 'User details retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  @ApiResponse({ status: 500, description: 'Internal server error' })
+  @ApiQuery({
+    name: 'fieldvalue',
+    required: false,
+    description: 'Field value parameter (optional)',
+    type: String,
+  })
+  async getUserDetailsByUserId(
+    @Param('userId') userId: string,
+    @Query('fieldvalue') fieldvalue?: string,
+    @Req() req?: Request,
+  ) {
+    // Get tenant ID from request headers
+    const tenantId = req?.headers?.tenantid as string;
+    const authorization = req?.headers?.authorization as string;
+
+    return await this.userService.getUserDetailsByUserId(
+      userId,
+      fieldvalue,
+      tenantId,
+      authorization,
+    );
+  }
 }

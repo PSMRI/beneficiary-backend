@@ -88,7 +88,7 @@ export class KeycloakService {
      
       return keycloakData.data;
     } catch (e) {
-      console.log('getUserKeycloakToken', e.message);
+      console.log('getUserKeycloakToken', e);
     }
   }
 

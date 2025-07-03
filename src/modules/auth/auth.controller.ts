@@ -12,6 +12,8 @@ import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { RegisterDTO } from './dto/register.dto';
 import { LoginDTO } from './dto/login.dto';
+import { UserServiceRegisterDTO } from './dto/user-service-register.dto';
+import { UserServiceLoginDTO } from './dto/user-service-login.dto';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -50,5 +52,27 @@ export class AuthController {
   @UsePipes(ValidationPipe)
   logout(@Req() req: Request, @Res() response: Response) {
     return this.authService.logout(req, response);
+  }
+
+  @Post('/register-in-user-service')
+  @UsePipes(new ValidationPipe())
+  @ApiBody({ type: UserServiceRegisterDTO })
+  @ApiResponse({ status: 201, description: 'User registered in user service successfully.' })
+  @ApiResponse({ status: 400, description: 'Bad Request.' })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  @ApiResponse({ status: 503, description: 'User service unavailable.' })
+  public async registerInUserService(@Body() body: UserServiceRegisterDTO) {
+    return await this.authService.registerInUserService(body);
+  }
+
+  @Post('/login-in-user-service')
+  @UsePipes(new ValidationPipe())
+  @ApiBody({ type: UserServiceLoginDTO })
+  @ApiResponse({ status: 200, description: 'Login successful.' })
+  @ApiResponse({ status: 400, description: 'Bad Request.' })
+  @ApiResponse({ status: 401, description: 'Invalid credentials.' })
+  @ApiResponse({ status: 503, description: 'User service unavailable.' })
+  public async loginInUserService(@Body() body: UserServiceLoginDTO) {
+    return await this.authService.loginInUserService(body);
   }
 }

@@ -6,7 +6,7 @@ import {
   ManyToOne,
   JoinColumn,
 } from 'typeorm';
-import { User } from './user.entity';
+// import { User } from './user.entity';
 
 @Entity('user_docs')
 export class UserDoc {
@@ -16,9 +16,9 @@ export class UserDoc {
   @Column({ type: 'uuid' })
   user_id: string;
 
-  @ManyToOne(() => User, (user) => user.user_id)
-  @JoinColumn({ name: 'user_id', referencedColumnName: 'user_id' })
-  user: User;
+  // @ManyToOne(() => User, (user) => user.user_id)
+  // @JoinColumn({ name: 'user_id', referencedColumnName: 'user_id' })
+  // user: User;
 
   @Column({ type: 'varchar', length: 50 })
   doc_type: string;

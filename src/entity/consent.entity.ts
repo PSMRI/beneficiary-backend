@@ -5,7 +5,7 @@ import {
   ManyToOne,
   JoinColumn,
 } from 'typeorm';
-import { User } from './user.entity';
+// import { User } from './user.entity';
 
 @Entity('consent')
 export class Consent {
@@ -28,7 +28,7 @@ export class Consent {
   consent_date: Date;
 
   // Optional: Define relationship with User entity if needed
-  @ManyToOne(() => User, (user) => user.user_id)
-  @JoinColumn({ name: 'user_id' }) // Specifies the foreign key column
-  user: User; // Optional: This will allow you to access the user details directly from the consent
+  // @ManyToOne(() => User, (user) => user.user_id)
+  // @JoinColumn({ name: 'user_id' }) // Specifies the foreign key column
+  // user: User; // Optional: This will allow you to access the user details directly from the consent
 }
