@@ -68,7 +68,7 @@ export class KeycloakService {
     let payload = {
       client_id: this.client_name_app,
       grant_type: 'password',
-      username: data.username,
+      username: data.username.toLowerCase(),
       password: data.password,
     };
 
@@ -142,7 +142,7 @@ export class KeycloakService {
         } = await lastValueFrom(
           this.httpService
             .get(url, {
-              params: { username, exact: true },
+              params: { username: username.toLowerCase(), exact: true },
               headers: {
                 'Content-Type': 'application/json',
                 Authorization: `Bearer ${adminResultData.access_token}`,

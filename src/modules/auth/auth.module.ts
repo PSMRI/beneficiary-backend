@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { HttpModule } from '@nestjs/axios';
 import { KeycloakModule } from 'src/services/keycloak/keycloak.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
@@ -14,9 +15,11 @@ import { Consent } from '@entities/consent.entity';
 import { UserApplication } from '@entities/user_applications.entity';
 import { LoggerService } from 'src/logger/logger.service';
 import ProfilePopulator from 'src/common/helper/profileUpdate/profile-update';
+import { WalletService } from 'src/services/wallet/wallet.service';
 
 @Module({
   imports: [
+    HttpModule,
     KeycloakModule,
     TypeOrmModule.forFeature([
       User,
@@ -35,7 +38,8 @@ import ProfilePopulator from 'src/common/helper/profileUpdate/profile-update';
     EncryptionService,
     LoggerService,
     ProfilePopulator,
+    WalletService,
   ],
-  exports: [AuthService, UserService, EncryptionService],
+  exports: [AuthService, UserService, EncryptionService, WalletService],
 })
 export class AuthModule {}

@@ -49,6 +49,9 @@ export class User {
   @Column({ type: 'json' })
   fieldsVerificationData: any;
 
+  @Column({ name: 'walletToken', type: 'text', nullable: true })
+  walletToken: string;
+
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
 

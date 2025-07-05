@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { ErrorResponse } from 'src/common/responses/error-response';
 import { SuccessResponse } from 'src/common/responses/success-response';
 import { LoggerService } from 'src/logger/logger.service';
+import { WalletService } from 'src/services/wallet/wallet.service';
 
 import { KeycloakService } from 'src/services/keycloak/keycloak.service';
 import { LoginDTO } from './dto/login.dto';
@@ -23,6 +24,7 @@ export class AuthService {
     private readonly keycloakService: KeycloakService,
     private readonly userService: UserService,
     private readonly loggerService: LoggerService,
+    private readonly walletService: WalletService,
   ) { }
 
   public async login(body: LoginDTO) {
@@ -30,11 +32,38 @@ export class AuthService {
     const token = await this.keycloakService.getUserKeycloakToken(body);
 
     if (token) {
-      return new SuccessResponse({
-        statusCode: HttpStatus.OK,
-        message: 'LOGGEDIN_SUCCESSFULLY',
-        data: token,
-      });
+      // First try to get Keycloak user details
+      const keycloakUser = await this.keycloakService.getUserByUsername(body.username);
+      
+      if (keycloakUser?.user?.id) {
+        // Try to find user by Keycloak ID (sso_id)
+        const user = await this.userService.findBySsoId(keycloakUser.user.id);
+        this.loggerService.log(`User found by Keycloak ID: ${JSON.stringify(user)}`);
+        
+        if (user) {
+          return new SuccessResponse({
+            statusCode: HttpStatus.OK,
+            message: 'LOGGEDIN_SUCCESSFULLY',
+            data: {
+              ...token,
+              username: body.username.toLowerCase(),
+              walletToken: user.walletToken || null,
+            },
+          });
+        } else {
+          // User exists in Keycloak but not in database
+          return new ErrorResponse({
+            statusCode: HttpStatus.UNAUTHORIZED,
+            errorMessage: 'User account not found in system',
+          });
+        }
+      } else {
+        // Could not find user in Keycloak
+        return new ErrorResponse({
+          statusCode: HttpStatus.UNAUTHORIZED,
+          errorMessage: 'INVALID_USERNAME_PASSWORD_MESSAGE',
+        });
+      }
     } else {
       return new ErrorResponse({
         statusCode: HttpStatus.UNAUTHORIZED,
@@ -97,24 +126,22 @@ export class AuthService {
 
   public async registerWithUsernamePassword(body) {
     try {
-      // let wallet_api_url = process.env.WALLET_API_URL;
-
-      // Step 2: Prepare user data for Keycloak registration
+      // Step 1: Prepare user data for Keycloak registration
       const dataToCreateUser = this.prepareUserDataV2(body);
       let { password, ...rest } = dataToCreateUser;
       let userName = dataToCreateUser.username;
 
-      // Step 3: Get Keycloak admin token
+      // Step 2: Get Keycloak admin token
       const token = await this.keycloakService.getAdminKeycloakToken();
       this.validateToken(token);
 
-      // Step 4: Register user in Keycloak
+      // Step 3: Register user in Keycloak
       const keycloakId = await this.registerUserInKeycloak(
         rest,
         token.access_token,
       );
 
-      // Step 5: Register user in PostgreSQL
+      // Step 4: Register user in PostgreSQL
       const userData = {
         ...body,
         keycloak_id: keycloakId,
@@ -122,25 +149,63 @@ export class AuthService {
       };
       const user = await this.userService.createKeycloakData(userData);
 
-      /*
-      if (user) {
-        //create user payload
-        let wallet_user_payload = {
-          firstName: user?.firstName,
-          lastName: user?.lastName,
-          sso_provider: user?.sso_provider,
-          sso_id: user?.sso_id,
-          phoneNumber: user?.phoneNumber,
-        };
+      // Step 5: Wallet onboarding integration
+      let walletToken = null;
+      try {
+        if (user?.user_id) {
+          const walletData = {
+            firstName: body.firstName.trim(),
+            lastName: body.lastName.trim(),
+            phone: body.phoneNumber.trim(),
+            password: password,
+            username: userName.toLowerCase(),
+          };
 
-        await axios.post(`${wallet_api_url}/users/create`, wallet_user_payload);
-      }*/
+          this.loggerService.log('Starting wallet onboarding for user', 'AuthService');
+          const walletResponse = await this.walletService.onboardUser(walletData);
+          walletToken = walletResponse?.data?.token;
 
-      // Step 6: Return success response
+          // Step 6: Update user with wallet token
+          if (walletToken) {
+            await this.userService.update(user.user_id, {
+              walletToken: walletToken,
+            });
+            this.loggerService.log('User updated with wallet token successfully', 'AuthService');
+          }
+        }
+      } catch (walletError) {
+        // Rollback user creation in DB and Keycloak if wallet onboarding fails
+        this.loggerService.error(
+          'Wallet onboarding failed during user registration',
+          walletError.stack,
+          'AuthService'
+        );
+        // Delete user from DB if it exists
+        if (user?.user_id) {
+          await this.userService.deleteUser(user.user_id);
+          this.loggerService.error(`Rolled back user in DB: ${user.user_id}`, 'AuthService');
+        }
+        // Delete user from Keycloak if it exists
+        if (keycloakId) {
+          await this.keycloakService.deleteUser(keycloakId);
+          this.loggerService.error(`Rolled back user in Keycloak: ${keycloakId}`, 'AuthService');
+        }
+        throw new ErrorResponse({
+          statusCode: HttpStatus.BAD_GATEWAY,
+          errorMessage: 'Registration could not be completed. Please try again later.',
+        });
+      }
+
+      // Step 7: Return success response
       return new SuccessResponse({
         statusCode: HttpStatus.OK,
         message: 'User created successfully',
-        data: { user, userName, password },
+        data: { 
+          user, 
+          userName: userName.toLowerCase(),
+          // password,
+          walletOnboarded: !!walletToken 
+        },
       });
     } catch (error) {
       return this.handleRegistrationError(error, body?.keycloak_id);
@@ -196,12 +261,13 @@ export class AuthService {
       enabled: 'true',
       firstName: trimmedFirstName,
       lastName: trimmedLastName,
-      username:
+      username: (
         trimmedFirstName +
         '_' +
         trimmedLastName?.charAt(0) +
         '_' +
-        trimmedPhoneNumber?.slice(-4),
+        trimmedPhoneNumber?.slice(-4)
+      ).toLowerCase(),
       credentials: [
         {
           type: 'password',

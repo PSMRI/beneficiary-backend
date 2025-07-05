@@ -295,9 +295,10 @@ export class UserService {
     });
   }
 
-  async findByUsername(username: string): Promise<User | undefined> {
+  async findBySsoId(ssoId: string): Promise<User | undefined> {
+    console.log('Finding user by username:', ssoId);
     return await this.userRepository.findOne({
-      where: { phoneNumber: username },
+      where: { sso_id: ssoId }
     });
   }
 
@@ -309,6 +310,7 @@ export class UserService {
       phoneNumber: body.phoneNumber ?? '',
       sso_provider: 'keycloak',
       sso_id: body.keycloak_id,
+      walletToken: body.walletToken ?? null,
       created_at: new Date(),
     });
     return await this.userRepository.save(user);
@@ -1098,5 +1100,17 @@ export class UserService {
         errors: error?.response?.data?.errors,
       };
     }
+  }
+
+  async deleteUser(userId: string): Promise<void> {
+    const user = await this.userRepository.findOne({
+      where: { user_id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User with ID '${userId}' not found`);
+    }
+
+    await this.userRepository.delete(userId);
   }
 }
