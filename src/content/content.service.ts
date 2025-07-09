@@ -126,7 +126,14 @@ export class ContentService {
 			let userInfo = null;
 			if (userId) {
 				const request = { user: { keycloak_id: userId } };
-				const response = await this.userService.findOne(request, true);
+				const response = { data: {
+					user_id: '123',
+					user_name: 'John Doe',
+					user_email: 'john.doe@example.com',
+					user_phone: '+1234567890',
+					user_address: '123 Main St, Anytown, USA',
+				} }
+				// await this.userService.findOne(request, true);
 				let user = null;
 				if (!(response instanceof ErrorResponse) && response?.data) {
 					user = response.data;
@@ -1004,7 +1011,14 @@ export class ContentService {
 
 	private async fetchUserInfo(userId: string) {
 		const request = { user: { keycloak_id: userId } };
-		const response = await this.userService.findOne(request, true);
+		const response = { data: {
+			user_id: '123',
+			user_name: 'John Doe',
+			user_email: 'john.doe@example.com',
+			user_phone: '+1234567890',
+			user_address: '123 Main St, Anytown, USA',
+		} }
+		// await this.userService.findOne(request, true);
 		
 		if (response instanceof ErrorResponse) {
 			throw new Error(`Failed to fetch user details: ${response.errorMessage}`);

@@ -11,11 +11,11 @@ import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { ContentService } from './content/content.service';
 import { ResponseCache } from './entity/response.entity';
 import { UserModule } from './modules/users/users.module';
-import { User } from './entity/user.entity';
+// import { User } from './entity/user.entity';
 import { EncryptionService } from './common/helper/encryptionService';
-import { UserRolesModule } from './modules/user_roles/user_roles.module';
+// import { UserRolesModule } from './modules/user_roles/user_roles.module';
 import { Role } from '@entities/role.entity';
-import { UserRole } from '@entities/user_roles.entity';
+// import { UserRole } from '@entities/user_roles.entity';
 import { AuthModule } from '@modules/auth/auth.module';
 import { OtpModule } from '@modules/otp/otp.module';
 import { AuthMiddleware } from './common/middlewares/auth.middleware';
@@ -41,14 +41,14 @@ import { AuthMiddleware } from './common/middlewares/auth.middleware';
         // logging: true,
       }),
     }),
-    TypeOrmModule.forFeature([ResponseCache, User, UserRole, Role]),
+    TypeOrmModule.forFeature([ResponseCache, Role]),
     {
       ...HttpModule.register({}),
       global: true,
     },
     ContentModule,
     UserModule,
-    UserRolesModule,
+    // UserRolesModule,
     AuthModule,
     OtpModule,
   ],

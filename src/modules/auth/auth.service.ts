@@ -7,9 +7,13 @@ import { LoggerService } from 'src/logger/logger.service';
 
 import { KeycloakService } from 'src/services/keycloak/keycloak.service';
 import { LoginDTO } from './dto/login.dto';
-
+import { UserServiceRegisterDTO } from './dto/user-service-register.dto';
+import { UserServiceResponse } from './dto/user-service-register.response';
+import axios from 'axios';
+import { UserServiceLoginDTO } from './dto/user-service-login.dto';
+import { UserServiceLoginResponse } from './dto/user-service-login.response';
+import { ExternalUserService } from '../users/externalServices/external-user.service';
 const crypto = require('crypto');
-const axios = require('axios');
 
 const jwt = require('jwt-decode');
 @Injectable()
@@ -17,12 +21,15 @@ export class AuthService {
   public keycloak_admin_cli_client_secret = this.configService.get<string>(
     'KEYCLOAK_ADMIN_CLI_CLIENT_SECRET',
   );
+  private readonly tenantId = this.configService.get<string>('TENANT_ID');
+  private readonly roleId = this.configService.get<string>('ROLE_ID');
 
   constructor(
     private readonly configService: ConfigService,
     private readonly keycloakService: KeycloakService,
     private readonly userService: UserService,
     private readonly loggerService: LoggerService,
+    private readonly externalUserService: ExternalUserService,
   ) { }
 
   public async login(body: LoginDTO) {
@@ -68,7 +75,8 @@ export class AuthService {
         keycloak_id: keycloakId,
         username: dataToCreateUser.username,
       };
-      const user = await this.userService.createKeycloakData(userData);
+      const user = {}
+      // await this.userService.createKeycloakData(userData);
 
       /*
       if (user) {
@@ -92,6 +100,116 @@ export class AuthService {
       });
     } catch (error) {
       return this.handleRegistrationError(error, body?.keycloak_id);
+    }
+  }
+
+  public async loginInUserService(body: UserServiceLoginDTO) {
+    try {
+      // Make the API call to user service
+      const response: UserServiceLoginResponse = await this.externalUserService.login(body);
+
+      this.loggerService.log('User service login successful', body.username);
+
+      // Return success response
+      return new SuccessResponse({
+        statusCode: HttpStatus.OK,
+        message: 'Login successful',
+        data: response.data
+      });
+
+    } catch (error) {
+      this.loggerService.error('Error during user service login:', error);
+
+      if (error.response) {
+        // The request was made and the server responded with a status code
+        // that falls out of the range of 2xx
+        return new ErrorResponse({
+          statusCode: error.response.status,
+          errorMessage: error.response.data?.message || 'Login failed',
+        });
+      } else if (error.request) {
+        // The request was made but no response was received
+        return new ErrorResponse({
+          statusCode: HttpStatus.SERVICE_UNAVAILABLE,
+          errorMessage: 'User service is not available',
+        });
+      } else {
+        // Something happened in setting up the request that triggered an Error
+        return new ErrorResponse({
+          statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+          errorMessage: 'Error setting up user service request',
+        });
+      }
+    }
+  }
+
+  public async registerInUserService(body: UserServiceRegisterDTO) {
+    try {
+      // Prepare the payload for user service - pass data as-is
+      const userServicePayload = {
+        firstName: body?.firstName,
+        lastName: body?.lastName,
+        gender: body?.gender || 'male',
+        username: this.getUserName(body),
+        mobile: body?.phoneNumber,
+        password: body?.password,
+        tenantCohortRoleMapping: [{
+          "tenantId": this.tenantId,
+          "roleId": this.roleId
+        }]
+        ,
+        customFields: body?.customFields
+      };
+
+      // Make the API call to user service
+      const response: UserServiceResponse = await this.externalUserService.createExternalUser(userServicePayload);
+
+      // Type the response data for better type safety
+
+      console.log('response.data.result.userData.userId', response.result.userData.userId);
+
+      const userXref = await this.userService.createUserXref(response.result.userData.userId);
+      console.log('userXref', userXref);
+
+      this.loggerService.log('User service registration successful', response.result.userData.userId);
+
+      if (!userXref) {
+        throw new ErrorResponse({
+          statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+          errorMessage: 'Unable to create user xref',
+        });
+      }
+
+      // Return success response
+      return new SuccessResponse({
+        statusCode: HttpStatus.CREATED,
+        message: 'User registered in user service successfully',
+        data: response
+      });
+
+    } catch (error) {
+      // this.loggerService.error('Error during user service registration:', error);
+      console.log('Error during user service registration:', error);
+      if (error.response) {
+        // The request was made and the server responded with a status code
+        // that falls out of the range of 2xx
+        return new ErrorResponse({
+          statusCode: error.response.status,
+          errorMessage: error.response.data?.message || 'User service registration failed',
+        });
+      } else if (error.request) {
+        // The request was made but no response was received
+        return new ErrorResponse({
+          statusCode: HttpStatus.SERVICE_UNAVAILABLE,
+          errorMessage: 'User service is not available',
+        });
+      } else {
+        // Something happened in setting up the request that triggered an Error
+        return new ErrorResponse({
+          statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+          errorMessage: 'Error setting up user service request',
+        });
+      }
     }
   }
 
@@ -120,7 +238,8 @@ export class AuthService {
         keycloak_id: keycloakId,
         username: dataToCreateUser.username,
       };
-      const user = await this.userService.createKeycloakData(userData);
+      const user = {}
+      // await this.userService.createKeycloakData(userData);
 
       /*
       if (user) {
@@ -154,7 +273,8 @@ export class AuthService {
         errorMessage: 'Invalid phone number format',
       });
     }
-    const isMobileExist = await this.userService.findByMobile(phoneNumber);
+    const isMobileExist = {}
+    //  await this.userService.findByMobile(phoneNumber);
     if (isMobileExist) {
       throw new ErrorResponse({
         statusCode: HttpStatus.CONFLICT,
@@ -322,5 +442,13 @@ export class AuthService {
         errorMessage: 'LOGOUT_FAILED',
       });
     }
+  }
+
+  private getUserName(body) {
+    const trimmedFirstName = body?.firstName?.trim();
+    const trimmedLastName = body?.lastName?.trim();
+    const trimmedPhoneNumber = body?.phoneNumber?.trim();
+
+    return trimmedFirstName + '_' + trimmedLastName?.charAt(0) + '_' + trimmedPhoneNumber?.slice(-4);
   }
 }

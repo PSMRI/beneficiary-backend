@@ -1,26 +1,26 @@
-import { User } from '@entities/user.entity';
+import { UsersXref } from '@entities/users_xref.entity';
 import { UserDoc } from '@entities/user_docs.entity';
-import { UserInfo } from '@entities/user_info.entity';
 import { Injectable, Logger } from '@nestjs/common';
 import { readFile } from 'fs/promises';
 import * as path from 'path';
-import { InjectRepository } from '@nestjs/typeorm'; 
+import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { EncryptionService } from 'src/common/helper/encryptionService';
 import { parse, format, isValid } from 'date-fns';
 import { KeycloakService } from '@services/keycloak/keycloak.service';
-
+import { IUser } from '../user-service.interfaces';
+import { ExternalUserService } from 'src/modules/users/externalServices/external-user.service';
 @Injectable()
 export default class ProfilePopulator {
   constructor(
-    @InjectRepository(User) private readonly userRepository: Repository<User>,
+    @InjectRepository(UsersXref) 
+    private readonly usersXrefRepository: Repository<UsersXref>,
     @InjectRepository(UserDoc)
     private readonly userDocRepository: Repository<UserDoc>,
-    @InjectRepository(UserInfo)
-    private readonly userInfoRepository: Repository<UserInfo>,
     private readonly encryptionService: EncryptionService,
     private readonly keycloakService: KeycloakService,
-  ) {}
+    private readonly externalUserService: ExternalUserService,
+  ) { }
 
   private formatDateToISO(inputDate: string): string | null {
     // Try native Date parsing (handles formats like "Thu, 08 May 2003 00:00:00 GMT")
@@ -48,6 +48,7 @@ export default class ProfilePopulator {
 
     return null;
   }
+  
   private romanToInt(roman: string): number {
     const romanMap: { [key: string]: number } = {
       I: 1,
@@ -76,7 +77,7 @@ export default class ProfilePopulator {
   }
 
   // Build Vcs in required format based on user documents
-  async buildVCs(userDocs: any) {
+  async buildVCs(userDocs: any[]) {
     const vcs = [];
 
     // Build VC array
@@ -101,10 +102,10 @@ export default class ProfilePopulator {
   }
 
   // Get user documents from database
-  private async getUserDocs(user: any) {
+  private async getUserDocs(userId: any) {
     const userDocs = await this.userDocRepository.find({
       where: {
-        user_id: user.user_id,
+        user_id: userId,
       },
     });
 
@@ -145,19 +146,11 @@ export default class ProfilePopulator {
   }
 
   // Handle value of gender field from aadhaar vc
-  private handleGenderField(vc: any, pathValue: any) {
-    const value = this.getValue(vc, pathValue);
-
-    switch (value) {
-      case 'M':
-      case 'Male':
-        return 'male';
-      case 'F':
-      case 'Female':
-        return 'female';
-      default:
-        return null;
-    }
+  private handleGenderValue(gender: string): 'male' | 'female' | 'transgender' | null {
+    if (gender === 'Male') return 'male';
+    if (gender === 'Female') return 'female';
+    if (gender === 'Transgender') return 'transgender';
+    return null;
   }
 
   private handleClassField(vc: any, pathValue: any) {
@@ -167,6 +160,7 @@ export default class ProfilePopulator {
     if (!intValue) return value;
     return intValue;
   }
+  
   private handleDisabilityTypeField(vc: any, pathValue: any) {
     const value = this.getValue(vc, pathValue);
     if (!value) return null;
@@ -259,7 +253,7 @@ export default class ProfilePopulator {
   async buildProfile(vcs: any) {
     const userProfile = {};
     const validationData = {};
-
+    // will come from settings
     // Get profile fields & corresponding arrays of VC names
     const profileFieldsFilePath = path.join(
       __dirname,
@@ -293,131 +287,72 @@ export default class ProfilePopulator {
   }
 
   // Build user data and info based on built profile
-  private buildUserDataAndInfo(profile: any) {
-    const userData = {
+  private async buildUserDataAndInfo(profile: any, adminResultData: any) {
+    console.log("Profile: ", profile);
+    // see for userid
+    const userData: IUser = {
       firstName: profile.firstName,
       lastName: profile.lastName,
       middleName: profile.middleName,
       dob: profile.dob,
-    };
-    ///update added fields
-    const userInfo = {
-      fatherName: profile.fatherName,
-      gender: profile.gender,
-      caste: profile.caste,
-      aadhaar: profile.aadhaar,
-      annualIncome: profile.annualIncome ? Number(profile.annualIncome) : null,
-      class: profile.class ? Number(profile.class) : null,
-      studentType: profile.studentType,
-      previousYearMarks: profile.previousYearMarks,
-      dob: profile.dob,
-      state: profile.state,
-      udid: profile.udid,
-      disabilityType: profile.disabilityType,
-      disabilityRange: profile.disabilityRange,
-      bankAccountHolderName: profile.bankAccountHolderName,
-      bankAccountNumber: profile.bankAccountNumber,
-      bankIfscCode: profile.bankIfscCode,
-      bankName: profile.bankName,
-      bankAddress: profile.bankAddress,
-      branchCode: profile.branchCode,
-      nspOtr: profile.nspOtr,
-      tuitionAndAdminFeePaid: profile.tuitionAndAdminFeePaid,
-      miscFeePaid: profile.miscFeePaid,
-      currentSchoolName: profile.currentSchoolName,
+      gender: this.handleGenderValue(profile.gender),
+      email: profile.email,
+      mobile: profile.mobile, // there is no mobile in profile
     };
 
+    // update added fields
+
+    const fieldList = await this.externalUserService.getFieldList( adminResultData?.access_token);
+
+    const userInfo = [];
+
+    for (const field of fieldList) {
+      if (profile[field.name] && !['firstName', 'lastName', 'middleName', 'dob', 'gender'].includes(field.name)) {
+   
+        userInfo.push(
+          {
+            name: field.name,
+            fieldId: field.fieldId,
+            value: profile[field.name]
+          }
+        )
+      }
+    }
+
+    /* samagraId, currentSchoolAddress, currentSchoolDistrict,
+      disabilityStatus, status, disabilityType, age, gender, motherName
+      tutionAndAdminFeePaid
+      */
     return { userData, userInfo };
   }
 
-  // Handle rows from 'user_info' table in database
-  private async handleUserInfo(user: any, userInfo: any) {
-    const queryRunner =
-      this.userInfoRepository.manager.connection.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
-    try {
-      const userRows = await queryRunner.manager.find(UserInfo, {
-        where: {
-          user_id: user.user_id,
-        },
-      });
-
-      let row: UserInfo;
-      ///update added filleds
-      if (userRows.length === 0) {
-        row = this.userInfoRepository.create({
-          user_id: user.user_id,
-          fatherName: userInfo.fatherName,
-          gender: userInfo.gender,
-          caste: userInfo.caste,
-          annualIncome: userInfo.annualIncome,
-          class: userInfo.class,
-          aadhaar: userInfo?.aadhaar?.toString(),
-          studentType: userInfo.studentType,
-          previousYearMarks: userInfo?.previousYearMarks?.toString(),
-          dob: userInfo?.dob?.toString(),
-          state: userInfo.state,
-          udid: userInfo?.udid?.toString(),
-          disabilityType: userInfo.disabilityType,
-          disabilityRange: userInfo.disabilityRange,
-          bankAccountHolderName: userInfo.bankAccountHolderName,
-          bankAccountNumber: userInfo.bankAccountNumber,
-          bankIfscCode: userInfo.bankIfscCode,
-          bankName: userInfo.bankName,
-          bankAddress: userInfo.bankAddress,
-          branchCode: userInfo.branchCode,
-          nspOtr: userInfo.nspOtr,
-          tuitionAndAdminFeePaid: userInfo.tuitionAndAdminFeePaid,
-          miscFeePaid: userInfo.miscFeePaid,
-          currentSchoolName: userInfo.currentSchoolName,
-        });
-      } else {
-        row = userRows[0];
-        row.fatherName = userInfo.fatherName;
-        row.gender = userInfo.gender;
-        row.caste = userInfo.caste;
-        row.annualIncome = userInfo.annualIncome;
-        row.class = userInfo.class;
-        row.aadhaar = userInfo?.aadhaar?.toString();
-        row.studentType = userInfo?.studentType;
-        row.previousYearMarks = userInfo?.previousYearMarks?.toString();
-        row.dob = userInfo?.dob?.toString();
-        row.state = userInfo.state;
-        row.udid = userInfo?.udid?.toString();
-        row.disabilityType = userInfo.disabilityType;
-        row.disabilityRange = userInfo.disabilityRange;
-        row.bankAccountHolderName = userInfo.bankAccountHolderName;
-        row.bankAccountNumber = userInfo.bankAccountNumber;
-        row.bankIfscCode = userInfo.bankIfscCode;
-        row.bankName = userInfo.bankName;
-        row.bankAddress = userInfo.bankAddress;
-        row.branchCode = userInfo.branchCode;
-        row.nspOtr = userInfo.nspOtr;
-        row.tuitionAndAdminFeePaid = userInfo.tuitionAndAdminFeePaid;
-        row.miscFeePaid = userInfo.miscFeePaid;
-        row.currentSchoolName = userInfo.currentSchoolName;
-      }
-      await queryRunner.manager.save(row);
-      await queryRunner.commitTransaction();
-      return row;
-    } catch (err) {
-      await queryRunner.rollbackTransaction();
-      throw err;
-    } finally {
-      await queryRunner.release();
+  private async handleUserUpdate(userId: string, userData: IUser, userInfo: any[], adminResultData: any) {
+    const updateBody = {
+      userData,
+      customFields: userInfo
     }
+
+    const user = await this.externalUserService.updateExternalUser(userId, updateBody, adminResultData?.access_token);
   }
 
-  // Update values in database based on built profile
-  async updateDatabase(profile: any, validationData: any, user: any , adminResultData: any) {
+  async updateDatabase(profile: any, validationData: any, userId: any, adminResultData: any) {
     // ===Reset user verification status===
+    // Use upsert approach - find existing or create new
+    let user = await this.usersXrefRepository.findOne({
+      where: { user_id: userId }
+    });
+
+    if (!user) {
+      user = new UsersXref();
+      user.user_id = userId;
+    }
+
     user.fieldsVerified = false;
     user.fieldsVerifiedAt = new Date();
     user.fieldsVerificationData = null;
 
     const queryRunner1 =
-      this.userRepository.manager.connection.createQueryRunner();
+      this.usersXrefRepository.manager.connection.createQueryRunner();
     await queryRunner1.connect();
     await queryRunner1.startTransaction();
     try {
@@ -431,41 +366,39 @@ export default class ProfilePopulator {
     }
     // ===================================
 
-    const { userData, userInfo } = this.buildUserDataAndInfo(profile);
+    const { userData, userInfo } = await this.buildUserDataAndInfo(profile, adminResultData );
+
+    console.log("User Data: ", userData);
+    console.log("User Info: ", userInfo);
 
     let cnt = 0;
     for (const field in profile) {
+      // if field not updated then increment the count
       if (!profile[field]) cnt++;
     }
-    const profFilled = cnt === 0;
 
-    user.firstName = userData.firstName ?? user.firstName;
-    user.lastName = userData.lastName ?? user.lastName;
-    user.middleName = userData.middleName;
-    user.dob = userData.dob;
+    console.log("Count: ", cnt , "****************", profile);
+    const profFilled = cnt === 0; // if all fields are updated then profFilled is true
+
+    // user.firstName = userData.firstName ?? user.firstName;
+    // user.lastName = userData.lastName ?? user.lastName;
+    // user.middleName = userData.middleName;
+    // user.dob = userData.dob;  
+
     user.fieldsVerified = profFilled;
     user.fieldsVerifiedAt = new Date();
     user.fieldsVerificationData = validationData;
 
-    await this.handleUserInfo(user, userInfo);
+    await this.handleUserUpdate(userId, userData, userInfo, adminResultData);
 
     const queryRunner =
-      this.userRepository.manager.connection.createQueryRunner();
+      this.usersXrefRepository.manager.connection.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
     try {
       await queryRunner.manager.save(user);
       await queryRunner.commitTransaction();
 
-      // Update firstName & lastName in keycloak as well
-      try {
-        await this.keycloakService.updateUser(user.sso_id, {
-          firstName: profile.firstName,
-          lastName: profile.lastName,
-        } , adminResultData);
-      } catch (keycloakError) {
-        Logger.error('Failed to update user in Keycloak: ', keycloakError?.response);
-      }
       return user;
     } catch (error) {
       await queryRunner.rollbackTransaction();
@@ -478,26 +411,27 @@ export default class ProfilePopulator {
   async populateProfile(users: any) {
     try {
       const adminResultData = await this.keycloakService.getAdminKeycloakToken();
-    
+      // console.log(adminResultData)
       for (const user of users) {
         try {
           // Get documents from database
-          const userDocs = await this.getUserDocs(user);
-
+          const userDocs = await this.getUserDocs(user); // uses user id
+          console.log("User Docs: ", userDocs.length);
           // Build VCs in required format
           const vcs = await this.buildVCs(userDocs);
-
-          // Build user-profile data
+          console.log("VCS: ", vcs.length);
+          // Build user-profile data - todo settings
           const { userProfile, validationData } = await this.buildProfile(vcs);
-
+          console.log("User Profile: ", userProfile, "vdta", validationData);
           // update entries in database
-          await this.updateDatabase(userProfile, validationData, user ,adminResultData);
+          await this.updateDatabase(userProfile, validationData, user, adminResultData);
         } catch (error) {
           Logger.error(`Failed to process user ${user.user_id}:`, error);
           continue;
         }
       }
     } catch (error) {
+      console.error("Error in 'Profile Populator CRON': ", error);
       Logger.error("Error in 'Profile Populator CRON': ", error);
       return error;
     }

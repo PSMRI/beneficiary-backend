@@ -10,51 +10,62 @@ export class AuthMiddleware implements NestMiddleware {
     req.mw_roles = [];
     req.mw_userid = null;
 
-    if (req.headers.authorization) {
-      let bearerToken = null;
-      let bearerTokenTemp = null;
+    if (!req?.headers?.authorization) {
+      // No authorization header, just move to next middleware/handler
+      return next();
+    }
 
-      // Get userid from  auth/login jwt token
-      const authToken = req?.headers?.authorization;
-      const authTokenTemp = req?.headers?.authorization.split(' ');
+    let bearerToken = null;
+    let bearerTokenTemp = null;
 
-      // If Bearer word not found in auth header value
-      if (authTokenTemp[0] !== 'Bearer') {
-        req.mw_userid = null;
-      }
-      // Get trimmed Bearer token value by skipping Bearer value
-      else {
-        bearerToken = authToken.trim().substr(7, authToken.length).trim();
-      }
+    // Get userid from  auth/login jwt token
+    const authToken = req?.headers?.authorization;
+    const authTokenTemp = req?.headers?.authorization.split(' ');
 
-      // If Bearer token value is not passed
-      if (!bearerToken) {
-        req.mw_userid = null;
-      }
-      // Lets split token by dot (.)
-      else {
-        bearerTokenTemp = bearerToken.split('.');
-      }
+    // If Bearer word not found in auth header value
+    if (authTokenTemp[0] !== 'Bearer') {
+      req.mw_userid = null;
+      return next();
+    }
+    // Get trimmed Bearer token value by skipping Bearer value
+    else {
+      bearerToken = authToken.trim().substr(7, authToken.length).trim();
+    }
 
-      // Since JWT has three parts - seperated by dots(.), lets split token
-      if (bearerTokenTemp.length < 3) {
-        req.mw_userid = null;
-      }
+    // If Bearer token value is not passed
+    if (!bearerToken) {
+      req.mw_userid = null;
+      return next();
+    }
+    // Lets split token by dot (.)
+    else {
+      bearerTokenTemp = bearerToken.split('.');
+    }
 
+    // Since JWT has three parts - seperated by dots(.), lets split token
+    if (bearerTokenTemp.length < 3) {
+      req.mw_userid = null;
+      return next();
+    }
+
+    try {
       const decoded: any = jwtDecode(authToken);
       let keycloak_id = decoded.sub;
 
       // If keycloak_id is not found in token payload (subject)
       if (!keycloak_id) {
         req.mw_userid = null;
-        throw new Error('User not found');
+        return next();
       }
 
       const roles = decoded?.resource_access?.hasura?.roles ?? [];
       req.mw_roles = roles;
       req.mw_userid = keycloak_id;
+    } catch (err) {
+      // If decoding fails, just move to next
+      return next();
     }
 
-    next();
+    return next();
   }
 }

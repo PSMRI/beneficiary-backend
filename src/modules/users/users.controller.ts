@@ -31,6 +31,7 @@ import { CreateUserApplicationDto } from './dto/create-user-application-dto';
 import { AuthGuard } from '@modules/auth/auth.guard';
 import { Request } from 'express';
 import { FetchVcUrlDto } from './dto/fetch-vc-url.dto';
+import { AuthenticatedRequest } from '@modules/auth/auth.guard';
 
 @ApiTags('users')
 @Controller('users')
@@ -43,7 +44,7 @@ export class UserController {
   @ApiResponse({ status: 201, description: 'User successfully created' })
   @ApiResponse({ status: 400, description: 'Bad Request' })
   async create(@Body() createUserDto: CreateUserDto) {
-    return this.userService.create(createUserDto);
+    // return this.userService.create(createUserDto);
   }
 
   @UseGuards(AuthGuard)
@@ -56,7 +57,7 @@ export class UserController {
     @Param('userId', new ParseUUIDPipe()) userId: string,
     @Body() updateUserDto: any,
   ) {
-    return this.userService.update(userId, updateUserDto);
+    // return this.userService.update(userId, updateUserDto);
   }
 
   @UseGuards(AuthGuard)
@@ -71,10 +72,17 @@ export class UserController {
     type: Boolean,
   })
   async findOne(
-    @Req() req: Request,
-    @Query('decryptData') decryptData?: boolean,
+    @Req() req: AuthenticatedRequest,
+    @Query('fieldvalue') fieldvalue?: string,
   ) {
-    return await this.userService.findOne(req, decryptData);
+    const sso_id = req?.user?.keycloak_id;
+    const authorization = req?.headers?.authorization as string;
+    console.log(sso_id,"ssoid")
+    return await this.userService.getUserDetailsByUserId(
+      sso_id,
+      fieldvalue,
+      authorization,
+    );
   }
 
   @UseGuards(AuthGuard)
@@ -88,8 +96,8 @@ export class UserController {
     description: 'Whether to decrypt user data (optional)',
     type: Boolean,
   })
-  async findConsentByUser(@Req() req: Request) {
-    return await this.userService.findConsentByUser(req);
+  async findConsentByUser(@Req() req: AuthenticatedRequest) {
+    // return await this.userService.findConsentByUser(req);
   }
 
   @UseGuards(AuthGuard)
@@ -109,7 +117,7 @@ export class UserController {
   @ApiResponse({ status: 200, description: 'User docs saved successfully' })
   @ApiResponse({ status: 400, description: 'Bad Request' })
   async createUserDocs(
-    @Req() req: Request,
+    @Req() req: AuthenticatedRequest,
     @Body() createUserDocDto: CreateUserDocDTO[],
   ) {
     return this.userService.createUserDocsNew(req, createUserDocDto);
@@ -119,7 +127,7 @@ export class UserController {
   @Post('/user_info')
   @ApiBasicAuth('access-token')
   async createUSerInfo(@Body() createUserInfoDto: CreateUserInfoDto) {
-    return await this.userService.createUserInfo(createUserInfoDto);
+    // return await this.userService.createUserInfo(createUserInfoDto);
   }
 
   @UseGuards(AuthGuard)
@@ -129,7 +137,7 @@ export class UserController {
     @Param('user_id') user_id: string,
     @Body() updateUserInfoDto: CreateUserInfoDto,
   ) {
-    return await this.userService.updateUserInfo(user_id, updateUserInfoDto);
+    // return await this.userService.updateUserInfo(user_id, updateUserInfoDto);
   }
 
   @UseGuards(AuthGuard)
@@ -193,7 +201,7 @@ export class UserController {
   @ApiResponse({ status: 400, description: 'Document not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
-  async deleteDoc(@Req() req: Request, @Param('doc_id') doc_id: string) {
+  async deleteDoc(@Req() req: AuthenticatedRequest, @Param('doc_id') doc_id: string) {
     try {
       return await this.userService.delete(req, doc_id);
     } catch (error) {
@@ -203,6 +211,7 @@ export class UserController {
       Logger.error('Failed to delete document:', error);
       throw new InternalServerErrorException(
         'An error occurred while processing your request',
+        { cause: error }
       );
     }
   }
@@ -214,5 +223,33 @@ export class UserController {
   @ApiResponse({ status: 400, description: 'Invalid URL or unable to fetch VC JSON' })
   async fetchVcJson(@Body() fetchVcUrlDto: FetchVcUrlDto) {
     return await this.userService.fetchVcJsonFromUrl(fetchVcUrlDto.url);
+  }
+
+  @Get('/read/:userId')
+  @UseGuards(AuthGuard)
+  @ApiBasicAuth('access-token')
+  @ApiOperation({ summary: 'Get user details by user ID and field value' })
+  @ApiResponse({ status: 200, description: 'User details retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  @ApiResponse({ status: 500, description: 'Internal server error' })
+  @ApiQuery({
+    name: 'fieldvalue',
+    required: false,
+    description: 'Field value parameter (optional)',
+    type: String,
+  })
+  async getUserDetailsByUserId(
+    @Param('userId') userId: string,
+    @Query('fieldvalue') fieldvalue?: string,
+    @Req() req?: Request,
+  ) {
+    // Get tenant ID from request headers
+    // const tenantId = req?.headers?.tenantid as string;
+    const authorization = req?.headers?.authorization as string;
+
+    return await this.userService.getUserDetailsByUserId(
+      fieldvalue,
+      authorization,
+    );
   }
 }
