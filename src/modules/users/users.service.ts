@@ -14,7 +14,6 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { CreateUserDocDTO } from './dto/user_docs.dto';
 import { UserDoc } from '@entities/user_docs.entity';
 import { CreateUserInfoDto } from './dto/create-user-info.dto';
-import { UserInfo } from '@entities/user_info.entity';
 import { Consent } from '@entities/consent.entity';
 import { CreateConsentDto } from './dto/create-consent.dto';
 import { UserApplication } from '@entities/user_applications.entity';
@@ -26,8 +25,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { DocumentListProvider } from 'src/common/helper/DocumentListProvider';
 import ProfilePopulator from 'src/common/helper/profileUpdate/profile-update';
-import axios from 'axios';
 import { CustomFieldsService } from '@modules/customfields/customfields.service';
+import axios from 'axios';
 import { FieldContext } from '@modules/customfields/entities/field.entity';
 
 @Injectable()
@@ -37,8 +36,6 @@ export class UserService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(UserDoc)
     private readonly userDocsRepository: Repository<UserDoc>,
-    @InjectRepository(UserInfo)
-    private readonly userInfoRepository: Repository<UserInfo>,
     @InjectRepository(Consent)
     private readonly consentRepository: Repository<Consent>,
     @InjectRepository(UserApplication)
@@ -86,25 +83,9 @@ export class UserService {
     Object.assign(existingUser, userData);
 
     try {
-      const updatedUser = await this.userRepository.save(existingUser);
+      const updatedUser: User = await this.userRepository.save(existingUser);
 
-      // Check for existing user info in userInfoRepository
-      const existingUserInfo = await this.userInfoRepository.findOne({
-        where: { user_id: userId },
-      });
-
-      if (existingUserInfo) {
-        // Update user info if it exists
-        Object.assign(existingUserInfo, userInfo);
-        await this.userInfoRepository.save(existingUserInfo);
-      } else if (userInfo) {
-        // Create a new user info if it doesn't exist and userInfo is provided
-        const newUserInfo = this.userInfoRepository.create({
-          user_id: userId,
-          ...userInfo,
-        });
-        await this.userInfoRepository.save(newUserInfo);
-      }
+      const existingUserInfo = await this.customFieldsService.saveCustomFields(updatedUser.user_id, FieldContext.USERS, userInfo);
 
       return new SuccessResponse({
         statusCode: HttpStatus.OK,
@@ -144,14 +125,8 @@ export class UserService {
       }
 
       const user = await this.findOneUser(userDetails.user_id);
-     
+      const customFields = await this.customFieldsService.getFieldValuesByItemId(userDetails.user_id);
       const userDoc = await this.findUserDocs(userDetails.user_id, decryptData);
-
-      // Get custom fields for the user using the user_id
-      const customFields = await this.customFieldsService.getCustomFields(
-        userDetails.user_id,
-        FieldContext.USERS
-      );
 
       const final = {
         ...user,
@@ -218,17 +193,6 @@ export class UserService {
     return user;
   }
 
-  async findOneUserInfo(
-    user_id: string,
-    decryptData: boolean,
-  ): Promise<UserInfo> {
-    const userInfo = await this.userInfoRepository.findOne({
-      where: { user_id },
-    });
-
-    return userInfo;
-  }
-
   async findUserDocs(user_id: string, decryptData: boolean) {
     const userDocs = await this.userDocsRepository.find({ where: { user_id } });
 
@@ -260,14 +224,6 @@ export class UserService {
       })),
     };
   }
-
-  /*async remove(user_id: string): Promise<void> {
-    const userWithInfo = await this.findOne(user_id);
-
-    const user = userWithInfo.user;
-
-    await this.userRepository.remove(user);
-  }*/
 
   // Method to check if mobile number exists
   async findByMobile(mobile: string): Promise<User | undefined> {
@@ -549,7 +505,7 @@ export class UserService {
       await this.updateProfile(userDetails);
     } catch (error) {
       Logger.error('Profile update failed:', error);
-      }
+    }
 
     return savedDocs;
   }
@@ -567,7 +523,7 @@ export class UserService {
       // Extract a user-friendly message
       let message =
         (error?.response?.data?.message ??
-        error?.message) ??
+          error?.message) ??
         'VC Verification failed';
       throw new BadRequestException({
         message: message,
@@ -617,45 +573,7 @@ export class UserService {
       return null;
     }
   }
-  // User info
-  async createUserInfo(
-    createUserInfoDto: CreateUserInfoDto,
-  ): Promise<UserInfo | null> {
-    try {
-      // Ensure you await the result of registerUserWithUsername
-      const userData = await this.registerUserWithUsername(createUserInfoDto);
 
-      // Check if userData and userData.user exist
-      if (userData?.user?.user_id) {
-        // Assign the user_id from userData to createUserInfoDto
-        createUserInfoDto.user_id = userData.user.user_id;
-
-        // Create and save the new UserInfo record
-        const userInfo = this.userInfoRepository.create(createUserInfoDto);
-        return await this.userInfoRepository.save(userInfo);
-      } else {
-        // Handle the case where userData or userData.user is null
-        console.error('User registration failed or returned invalid data.');
-        return null;
-      }
-    } catch (error) {
-      console.error('Error while creating user info:', error);
-      throw new Error('Could not create user info');
-    }
-  }
-
-  async updateUserInfo(
-    user_id: string,
-    updateUserInfoDto: CreateUserInfoDto,
-  ): Promise<UserInfo> {
-    const userInfo = await this.userInfoRepository.findOne({
-      where: { user_id },
-    });
-
-    Object.assign(userInfo, updateUserInfoDto);
-    console.log('userInfo--->>', userInfo);
-    return this.userInfoRepository.save(userInfo);
-  }
   // Create a new consent record
   async createUserConsent(
     createConsentDto: CreateConsentDto,
@@ -666,7 +584,7 @@ export class UserService {
   async createUserApplication(
     createUserApplicationDto: CreateUserApplicationDto,
   ) {
-  
+
 
     try {
       // Check if an application already exists for the given benefit_id and user_id
@@ -869,21 +787,27 @@ export class UserService {
       .execute();
   }
 
-  async resetInUserInfo(
+  async resetFields(
     field: string,
     existingDoc: UserDoc,
-    queryRunner: QueryRunner,
   ) {
-    await queryRunner.manager
-      .getRepository(UserInfo)
-      .createQueryBuilder()
-      .update(UserInfo)
-      .set({ [field]: () => 'NULL' }) // Use a raw SQL expression for setting NULL.
-      .where('user_id = :id', { id: existingDoc.user_id })
-      .execute();
+    try {
+      const fieldData = await this.customFieldsService.getFieldByName(field, FieldContext.USERS);
+
+      if (!fieldData?.fieldId) {
+        Logger.warn(`Field '${field}' not found in custom fields`);
+        return;
+      }
+
+      await this.customFieldsService.setFieldValueToNull(existingDoc.user_id, fieldData.fieldId);
+    } catch (error) {
+      Logger.error(`Error resetting field '${field}' for user ${existingDoc.user_id}:`, error);
+      throw error;
+    }
   }
 
   async resetField(existingDoc: UserDoc, queryRunner: QueryRunner) {
+    // TODO: Add more fields to the fieldsArray
     const fieldsArray = {
       aadhaar: ['middleName', 'fatherName', 'gender', 'dob'],
       casteCertificate: ['caste'],
@@ -898,7 +822,7 @@ export class UserService {
     for (const field of fields) {
       if (field === 'middleName')
         await this.resetInUsers(field, existingDoc, queryRunner);
-      else await this.resetInUserInfo(field, existingDoc, queryRunner);
+      else await this.resetFields(field, existingDoc);
     }
   }
 

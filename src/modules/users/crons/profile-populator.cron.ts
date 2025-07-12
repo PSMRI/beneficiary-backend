@@ -7,13 +7,14 @@ import ProfilePopulator from 'src/common/helper/profileUpdate/profile-update';
 
 @Injectable()
 export default class ProfilePopulatorCron {
+  private readonly logger = new Logger(ProfilePopulatorCron.name);
   constructor(
     @InjectRepository(User) private readonly userRepository: Repository<User>,
     private readonly profilePopulator: ProfilePopulator,
   ) {}
 
   // Get users from database based on conditions
-  private async getUsers() {
+  private async getUsers() : Promise<User[]> {
     try {
       const users = await this.userRepository
       .createQueryBuilder('user')
@@ -37,8 +38,7 @@ export default class ProfilePopulatorCron {
 
       return users;
     } catch (error) {
-      console.error("Error fetching users: ", error);
-      Logger.error("Error fetching users in 'getUsers': ", error);
+      this.logger.error("Error fetching users: ", error);
       throw error;
     }
   }
@@ -46,11 +46,11 @@ export default class ProfilePopulatorCron {
   @Cron('*/5 * * * *')
   async populateProfile() {
     try {
-      console.log("Profile Populator CRON started " + new Date());
-      const users = await this.getUsers();
+      this.logger.log("Profile Populator CRON started " + new Date());
+      const users : User[] = await this.getUsers();
       await this.profilePopulator.populateProfile(users);
     } catch (error) {
-      Logger.error("Error in 'Profile Populator CRON': ", error);
+      this.logger.error("Error in 'Profile Populator CRON': ", error);
       throw new Error("Error in 'Profile Populator CRON': " + error);
     }
   }

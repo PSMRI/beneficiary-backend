@@ -6,7 +6,7 @@ import {
 	Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, FindOptionsWhere, In, DeleteResult } from 'typeorm';
+import { Repository, FindOptionsWhere, In, DeleteResult, UpdateResult } from 'typeorm';
 import { Field, FieldContext } from './entities/field.entity';
 import { FieldValue } from './entities/field-value.entity';
 import { CreateFieldDto } from './dto/create-field.dto';
@@ -25,10 +25,10 @@ export class CustomFieldsService {
 
 	constructor(
 		@InjectRepository(Field)
-		private fieldRepository: Repository<Field>,
+		private readonly fieldRepository: Repository<Field>,
 		@InjectRepository(FieldValue)
-		private fieldValueRepository: Repository<FieldValue>
-	) {}
+		private readonly fieldValueRepository: Repository<FieldValue>
+	) { }
 
 	/**
 	 * Create a new custom field
@@ -186,6 +186,7 @@ export class CustomFieldsService {
 		context: FieldContext,
 		customFields: CustomFieldDto[]
 	): Promise<FieldValue[]> {
+
 		this.logger.debug(
 			`Saving custom fields for item: ${itemId}, context: ${context}`
 		);
@@ -261,6 +262,7 @@ export class CustomFieldsService {
 			`Saved ${savedValues.length} custom field values for item: ${itemId}`
 		);
 		return savedValues;
+
 	}
 
 	/**
@@ -439,5 +441,20 @@ export class CustomFieldsService {
 			`Generated statistics for ${statistics.length} fields`
 		);
 		return statistics;
+	}
+
+	async getFieldValuesByItemId(itemId: string): Promise<FieldValue[]> {
+		return this.fieldValueRepository.find({
+			where: { itemId },
+			relations: ['field'],
+		});
+	}
+
+	async setFieldValueToNull(itemId: string, fieldId: string): Promise<UpdateResult> {
+		return await this.fieldValueRepository.update({ itemId, fieldId }, { value: null });
+	}
+
+	async getFieldByName(name: string, context: FieldContext): Promise<Field> {
+		return await this.fieldRepository.findOne({ where: { name, context } });
 	}
 }
