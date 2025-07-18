@@ -312,6 +312,45 @@ export class HasuraService {
     // }
   }
 
+  async getExistingItemIds(): Promise<string[]> {
+    const query = `query MyQuery {
+      ${this.cache_db} {
+        item_id
+      }
+    }`;
+
+    try {
+      const response = await this.queryDb(query);
+      const items = response.data[this.cache_db] || [];
+      return items.map(item => item.item_id);
+    } catch (error) {
+      console.log('Error fetching existing item IDs:', error);
+      return [];
+    }
+  }
+
+  async deleteItemByItemId(itemId: string): Promise<any> {
+    const query = `mutation MyMutation($itemId: String!) {
+      delete_${this.cache_db}(where: {item_id: {_eq: $itemId}}) {
+        affected_rows
+        returning {
+          id
+          item_id
+          title
+        }
+      }
+    }`;
+
+    try {
+      const response = await this.queryDb(query, { itemId });
+      console.log(`Deleted item with item_id: ${itemId}`);
+      return response;
+    } catch (error) {
+      console.log('Error deleting item by item ID:', error);
+      throw error;
+    }
+  }
+
   async queryDb(query: string, variables?: Record<string, any>): Promise<any> {
     try {
       console.log('querydbDetails', query, variables, this.adminSecretKey);
