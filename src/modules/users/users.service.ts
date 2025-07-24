@@ -8,7 +8,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { ILike, Repository, QueryRunner } from 'typeorm';
+import { ILike, Repository, QueryRunner, In, Not } from 'typeorm';
 import { User } from '../../entity/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { CreateUserDocDTO } from './dto/user_docs.dto';
@@ -27,6 +27,9 @@ import ProfilePopulator from 'src/common/helper/profileUpdate/profile-update';
 import { CustomFieldsService } from '@modules/customfields/customfields.service';
 import axios from 'axios';
 import { FieldContext } from '@modules/customfields/entities/field.entity';
+import { ConfigService } from '@nestjs/config';
+import { ProxyService } from '@services/proxy/proxy.service';
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class UserService {
@@ -42,7 +45,10 @@ export class UserService {
     private readonly keycloakService: KeycloakService,
     private readonly profilePopulator: ProfilePopulator,
     private readonly customFieldsService: CustomFieldsService,
+    private readonly configService: ConfigService,
+    private readonly proxyService: ProxyService,
   ) { }
+
 
   async create(createUserDto: CreateUserDto) {
     const user = this.userRepository.create(createUserDto);
@@ -1001,5 +1007,193 @@ export class UserService {
     }
 
     await this.userRepository.delete(userId);
+  }
+
+  // Application Status Update Methods
+
+  async getApplications(userId?: string) {
+    try {
+      const whereCondition: any = {
+        status: Not(In(['amount received', 'rejected', 'disbursed'])),
+      };
+
+      if (userId) {
+        whereCondition.user_id = userId;
+      }
+
+      const applications = await this.userApplicationRepository.find({
+        where: whereCondition,
+      });
+
+      return applications;
+    } catch (error) {
+      Logger.error(`Error while getting user applications: ${error}`);
+      throw new InternalServerErrorException(  'Failed to fetch user applications');
+    }
+  }
+
+  async updateStatus(
+    application: any,
+    statusData: { status: string; comment: string },
+  ) {
+    try {
+      if (!statusData?.status) return;
+
+      application.status = statusData.status.toLowerCase(); // e.g., "approved"
+      application.remark = statusData.comment || ''; // Save the comment
+
+      const queryRunner =
+        this.userApplicationRepository.manager.connection.createQueryRunner();
+      await queryRunner.connect();
+      try {
+        await queryRunner.startTransaction();
+        await queryRunner.manager.save(application);
+        await queryRunner.commitTransaction();
+      } catch (error) {
+        await queryRunner.rollbackTransaction();
+        Logger.error(`Error in query runner: ${error}`);
+        throw new Error('Error in query runner');
+      } finally {
+        await queryRunner.release();
+      }
+    } catch (error) {
+      Logger.error(`Error while updating application status: ${error}`);
+    }
+  }
+
+  async getStatus(orderId: string) {
+    const bapId = this.configService.get<string>('BAP_ID'); 
+    const bapUri = this.configService.get<string>('BAP_URI'); 
+    const bppId = this.configService.get<string>('BPP_ID');  
+    const bppUri = this.configService.get<string>('BPP_URI'); 
+    if (!bapId || !bapUri || !bppId || !bppUri) {  
+      throw new Error('Missing required configuration for BAP/BPP');
+    }
+    
+    const body = {
+      context: {
+        domain: this.configService.get<string>('DOMAIN'),
+        action: 'status',
+        timestamp: new Date().toISOString(),
+        ttl: 'PT10M',
+        version: '1.1.0',
+        bap_id: bapId,
+        bap_uri: bapUri,
+        bpp_id: bppId,
+        bpp_uri: bppUri,
+        transaction_id: uuidv4(),
+        message_id: uuidv4(),
+        location: {
+					country: {
+						name: 'India',
+						code: 'IND',
+					},
+					city: {
+						name: 'Bangalore',
+						code: 'std:080',
+					},
+				},
+      },
+      message: {
+        order_id: orderId,
+      },
+    };
+
+    const response = await this.proxyService.bapCLientApi2('status', body);
+
+    try {
+      const rawStatus =
+        response?.responses[0]?.message?.order?.fulfillments[0]?.state
+          ?.descriptor?.name;
+
+      if (!rawStatus) return null;
+
+      // Parse status stringified JSON
+      const parsedStatus = JSON.parse(rawStatus);
+      return parsedStatus; // { status: '...', comment: '...' }
+    } catch (error) {
+      console.error(`Error while getting status from response: ${error}`);
+      throw new Error('Error while getting status from response');
+    }
+  }
+
+  async processApplications(applications: any) {
+    try {
+      const results = await Promise.allSettled(
+        applications.map(async (application: any) => {
+          const statusData = await this.getStatus(
+            application.external_application_id,
+          );
+          await this.updateStatus(application, statusData);
+        }),
+      );
+      const failures = results.filter(r => r.status === 'rejected');
+      if (failures.length > 0) {
+        Logger.error(`Failed to process ${failures.length} out of ${applications.length} applications`);
+      }
+      return {
+        total: applications.length,
+        succeeded: results.filter(r => r.status === 'fulfilled').length,
+      };
+    } catch (error) {
+      Logger.error(`Error while processing applications: ${error}`);
+      throw new InternalServerErrorException(
+        'Failed to process applications',
+      );
+    }
+  }
+
+  async updateApplicationStatuses(req?: any) {
+    try {
+      let userId: string | undefined;
+      
+      // If req is provided, extract user_id from token
+      if (req) {
+        const sso_id = req?.user?.keycloak_id;
+        if (!sso_id) {
+          throw new UnauthorizedException('Invalid or missing Keycloak ID');
+        }
+
+        const userDetails = await this.userRepository.findOne({
+          where: { sso_id },
+        });
+
+        if (!userDetails) {
+          throw new NotFoundException(`User with ID '${sso_id}' not found`);
+        }
+
+        userId = userDetails.user_id;
+      }
+
+      // Get user application records from database
+      const applications = await this.getApplications(userId);
+
+      if (applications.length === 0) {
+        Logger.log(`No applications found for user: ${userId || 'all users'}`);
+        return {
+          success: true,
+          message: `No applications found for ${userId ? 'user' : 'any users'}`,
+          processedCount: 0,
+        };
+      }
+
+      // Update status of each application
+      await this.processApplications(applications);
+
+      Logger.log(
+        `Successfully processed ${applications.length} applications for ${userId || 'all users'}`,
+      );
+
+      return {
+        success: true,
+        message: `Successfully processed ${applications.length} applications`,
+        processedCount: applications.length,
+      };
+    } catch (error) {
+      Logger.error(`Error in update application statuses: ${error}`);
+      throw new InternalServerErrorException(
+        'Failed to update application statuses',
+      );
+    }
   }
 }
