@@ -15,6 +15,8 @@ import { UpdateFieldDto } from './dto/update-field.dto';
 import { CustomFieldDto, CustomFieldResponseDto } from './dto/custom-field.dto';
 import { QueryFieldsDto } from './dto/query-fields.dto';
 import { AdminService } from '../admin/admin.service';
+import { FieldEncryptionHelper } from './helpers/field-encryption.helper';
+import { FieldValidationHelper } from './helpers/field-validation.helper';
 
 /**
  * Service for managing custom fields and field values
@@ -31,7 +33,9 @@ export class CustomFieldsService {
 		@InjectRepository(FieldValue)
 		private readonly fieldValueRepository: Repository<FieldValue>,
 		private readonly dataSource: DataSource,
-		private readonly adminService: AdminService
+		private readonly adminService: AdminService,
+		private readonly fieldEncryptionHelper: FieldEncryptionHelper,
+		private readonly fieldValidationHelper: FieldValidationHelper,
 	) { }
 
 	/**
@@ -134,7 +138,21 @@ export class CustomFieldsService {
 
 		const field = await this.findFieldById(fieldId);
 
-		// Check name uniqueness if name is being updated
+		await this.ensureFieldNameIsUnique(field, updateFieldDto, fieldId);
+		await this.handleEncryptionChange(field, updateFieldDto, fieldId);
+
+		Object.assign(field, updateFieldDto);
+		const savedField = await this.fieldRepository.save(field);
+
+		this.logger.log(`Field updated successfully: ${fieldId}`);
+		return savedField;
+	}
+
+	private async ensureFieldNameIsUnique(
+		field: Field,
+		updateFieldDto: UpdateFieldDto,
+		fieldId: string
+	): Promise<void> {
 		if (updateFieldDto.name && updateFieldDto.name !== field.name) {
 			const existingField = await this.fieldRepository.findOne({
 				where: {
@@ -149,12 +167,42 @@ export class CustomFieldsService {
 				);
 			}
 		}
+	}
 
-		Object.assign(field, updateFieldDto);
-		const savedField = await this.fieldRepository.save(field);
+	private async handleEncryptionChange(
+		field: Field,
+		updateFieldDto: UpdateFieldDto,
+		fieldId: string
+	): Promise<void> {
+		if (updateFieldDto.fieldAttributes?.isEncrypted === undefined) {
+			return;
+		}
+		const existingValuesCount = await this.fieldValueRepository.count({
+			where: { fieldId },
+		});
 
-		this.logger.log(`Field updated successfully: ${fieldId}`);
-		return savedField;
+		const isEnabling = updateFieldDto.fieldAttributes.isEncrypted && !field.isEncrypted();
+		const isDisabling = !updateFieldDto.fieldAttributes.isEncrypted && field.isEncrypted();
+
+		if (isEnabling) {
+			if (!this.canEnableEncryption(field, existingValuesCount > 0)) {
+				throw new BadRequestException(
+					`Cannot enable encryption for field '${field.name}' because it has ${existingValuesCount} existing values.`
+				);
+			}
+		} else if (isDisabling) {
+			if (!this.canDisableEncryption(field, existingValuesCount > 0)) {
+				if (existingValuesCount > 0) {
+					throw new BadRequestException(
+						`Cannot disable encryption for field '${field.name}' because it has ${existingValuesCount} existing values.`
+					);
+				} else {
+					throw new BadRequestException(
+						`Cannot disable encryption for field '${field.name}'. Field is not currently encrypted.`
+					);
+				}
+			}
+		}
 	}
 
 	/**
@@ -290,13 +338,23 @@ export class CustomFieldsService {
 			}
 
 			fieldValue.field = field;
-			fieldValue.setValue(customField.value);
 			fieldValue.metadata = customField.metadata;
 
-			if (!fieldValue.isValid()) {
-				throw new BadRequestException(
-					`Invalid value for field "${field.name}": ${customField.value}`
-				);
+			// Always validate first using centralized validation service
+			this.fieldValidationHelper.validateFieldValue(
+				customField.value,
+				field,
+				true // Throw exception on validation error
+			);
+
+			// Handle value setting using centralized serialization
+			if (field.isEncrypted()) {
+				const encryptedValue = this.fieldEncryptionHelper.encryptFieldValue(customField.value, field);
+				fieldValue.setEncryptedValue(encryptedValue);
+			} else {
+				// Use centralized serialization for consistency
+				const serializedValue = this.fieldValidationHelper.serializeValue(customField.value, field.type);
+				fieldValue.value = serializedValue;
 			}
 
 			const savedValue = await this.fieldValueRepository.save(fieldValue);
@@ -355,12 +413,20 @@ export class CustomFieldsService {
 		for (const field of allFields) {
 			const fieldValue = fieldValueMap.get(field.fieldId);
 
+			// Get value using centralized deserialization
+			let decryptedValue = null;
+			if (fieldValue) {
+				decryptedValue = field.isEncrypted() 
+									? this.fieldEncryptionHelper.decryptFieldValue(fieldValue.value, field)
+				: this.fieldValidationHelper.deserializeValue(fieldValue.value, field.type);
+			}
+
 			const response: CustomFieldResponseDto = {
 				fieldId: field.fieldId,
 				name: field.name,
 				label: field.label,
 				type: field.type,
-				value: fieldValue ? fieldValue.getParsedValue() : null,
+				value: decryptedValue,
 				fieldParams: field.fieldParams,
 				fieldAttributes: field.fieldAttributes,
 				metadata: fieldValue?.metadata || null,
@@ -504,4 +570,44 @@ export class CustomFieldsService {
 	async getFieldByName(name: string, context: FieldContext): Promise<Field> {
 		return await this.fieldRepository.findOne({ where: { name, context } });
 	}
+
+		/**
+	 * Check if a field can have encryption enabled
+	 * @param field The field to check
+	 * @param hasExistingValues Whether the field has existing values
+	 * @returns true if encryption can be enabled
+	 */
+		canEnableEncryption(field: Field, hasExistingValues: boolean): boolean {
+			if (field.isEncrypted()) {
+				return false; // Already encrypted
+			}
+	
+			if (hasExistingValues) {
+				return false; // Cannot enable encryption for fields with existing values
+			}
+	
+			return true;
+		}
+	
+		/**
+		 * Check if a field can have encryption disabled
+		 * @param field The field to check
+		 * @param hasExistingValues Whether the field has existing values
+		 * @returns true if encryption can be disabled
+		 */
+		canDisableEncryption(field: Field, hasExistingValues: boolean): boolean {
+			// Encryption can only be disabled if the field is currently encrypted
+			if (!field.isEncrypted()) {
+				return false; // Not encrypted, so nothing to disable
+			}
+	
+			// Encryption can only be disabled if there are no existing values
+			if (hasExistingValues) {
+				return false; // Cannot disable encryption for fields with existing values
+			}
+	
+			return true; // Can disable encryption if no existing values
+		}
+
+
 }

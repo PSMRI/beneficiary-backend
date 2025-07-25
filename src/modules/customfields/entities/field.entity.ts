@@ -189,6 +189,7 @@ export class Field {
 		description: 'Field attributes and metadata',
 		example: {
 			isEditable: true,
+			isRequired: false,
 			isEncrypted: false,
 			isSearchable: true,
 		},

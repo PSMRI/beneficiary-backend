@@ -1,4 +1,6 @@
 import { ApiProperty, PartialType, OmitType } from '@nestjs/swagger';
+import { IsOptional, IsBoolean } from 'class-validator';
+import { Type } from 'class-transformer';
 import { CreateFieldDto } from './create-field.dto';
 
 /**
@@ -17,5 +19,8 @@ export class UpdateFieldDto extends PartialType(
 		example: true,
 		required: false,
 	})
+	@IsOptional()
+	@IsBoolean()
+	@Type(() => Boolean)
 	isActive?: boolean;
 }

@@ -5,6 +5,8 @@ import { CustomFieldsService } from './customfields.service';
 import { Field } from './entities/field.entity';
 import { FieldValue } from './entities/field-value.entity';
 import { AdminModule } from '../admin/admin.module';
+import { FieldEncryptionHelper } from './helpers/field-encryption.helper';
+import { FieldValidationHelper } from './helpers/field-validation.helper';
 
 /**
  * CustomFields Module
@@ -17,13 +19,14 @@ import { AdminModule } from '../admin/admin.module';
  * - Multi-entity support (User, Cohort, etc.)
  * - Field type validation and transformation
  * - Advanced search and filtering capabilities
+ * - Optional encryption support for sensitive fields
  * @author Development Team
  * @since 1.0.0
  */
 @Module({
 	imports: [TypeOrmModule.forFeature([Field, FieldValue]), AdminModule],
 	controllers: [CustomFieldsController],
-	providers: [CustomFieldsService],
-	exports: [CustomFieldsService, TypeOrmModule],
+	providers: [CustomFieldsService, FieldEncryptionHelper, FieldValidationHelper],
+	exports: [CustomFieldsService, FieldEncryptionHelper, FieldValidationHelper, TypeOrmModule],
 })
 export class CustomFieldsModule {}
