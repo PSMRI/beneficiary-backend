@@ -65,6 +65,7 @@ export class FieldValue {
 	 * The field value
 	 * @description The actual value stored for this field instance
 	 * Type depends on the field type - stored as text but can be JSON for complex types
+	 * For encrypted fields, this contains the encrypted value
 	 */
 	@ApiProperty({
 		description: 'The field value',
@@ -137,6 +138,9 @@ export class FieldValue {
 			return this.value;
 		}
 
+		// Use centralized deserialization from FieldValidationHelper
+		// Note: This method is used by the entity itself, so we can't inject the helper
+		// The service layer should use FieldValidationHelper.deserializeValue() instead
 		switch (this.field.type) {
 			case 'numeric':
 			case 'currency':
@@ -164,51 +168,14 @@ export class FieldValue {
 		}
 	}
 
+
+
 	/**
-	 * Set value with automatic type conversion
-	 * @param value Value to set
+	 * Set encrypted value (used by service layer)
+	 * @param encryptedValue The encrypted value to store
 	 */
-	setValue(value: any): void {
-		if (value === null || value === undefined) {
-			this.value = null;
-			return;
-		}
-
-		if (!this.field) {
-			this.value = String(value);
-			return;
-		}
-
-		switch (this.field.type) {
-			case 'multi_select':
-			case 'json':
-				this.value =
-					typeof value === 'string' ? value : JSON.stringify(value);
-				break;
-
-			case 'checkbox':
-				this.value = Boolean(value).toString();
-				break;
-
-			case 'date':
-				if (value instanceof Date) {
-					this.value = value.toISOString().split('T')[0];
-				} else {
-					this.value = String(value);
-				}
-				break;
-
-			case 'datetime':
-				if (value instanceof Date) {
-					this.value = value.toISOString();
-				} else {
-					this.value = String(value);
-				}
-				break;
-
-			default:
-				this.value = String(value);
-		}
+	setEncryptedValue(encryptedValue: string): void {
+		this.value = encryptedValue;
 	}
 
 	/**
@@ -219,76 +186,4 @@ export class FieldValue {
 		return !this.value || this.value.trim() === '';
 	}
 
-	/**
-	 * Validate value against field constraints
-	 * @returns true if value is valid
-	 */
-	isValid(): boolean {
-		if (!this.field) {
-			return true;
-		}
-
-		// Check required field
-		if (this.field.isRequired && this.isEmpty()) {
-			return false;
-		}
-
-		// Check field-specific validation
-		const fieldParams = this.field.fieldParams;
-		if (fieldParams?.validation) {
-			const validation = fieldParams.validation;
-
-			// Check regex pattern
-			if (validation.regex && this.value) {
-				const regex = new RegExp(validation.regex);
-				if (!regex.test(this.value)) {
-					return false;
-				}
-			}
-
-			// Check min/max length
-			if (
-				validation.minLength &&
-				this.value &&
-				this.value.length < validation.minLength
-			) {
-				return false;
-			}
-			if (
-				validation.maxLength &&
-				this.value &&
-				this.value.length > validation.maxLength
-			) {
-				return false;
-			}
-
-			// Check min/max value for numeric fields
-			if (
-				this.field.type === 'numeric' ||
-				this.field.type === 'currency' ||
-				this.field.type === 'percent'
-			) {
-				const numValue = parseFloat(this.value);
-				if (validation.min !== undefined && numValue < validation.min) {
-					return false;
-				}
-				if (validation.max !== undefined && numValue > validation.max) {
-					return false;
-				}
-			}
-		}
-
-		// Check dropdown/radio options
-		if (
-			(this.field.type === 'drop_down' || this.field.type === 'radio') &&
-			fieldParams?.options
-		) {
-			const validOptions = fieldParams.options.map((opt) => opt.value);
-			if (!validOptions.includes(this.value)) {
-				return false;
-			}
-		}
-
-		return true;
-	}
 }

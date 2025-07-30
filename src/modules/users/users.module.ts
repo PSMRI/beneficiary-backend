@@ -12,7 +12,6 @@ import ProfilePopulatorCron from './crons/profile-populator.cron';
 import ProfilePopulator from 'src/common/helper/profileUpdate/profile-update';
 import { ApplicationStatusUpdate } from './crons/application-status-update.cron';
 import { ProxyService } from '@services/proxy/proxy.service';
-import { CustomFieldsService } from '@modules/customfields/customfields.service';
 import { Field } from '@modules/customfields/entities/field.entity';
 import { FieldValue } from '@modules/customfields/entities/field-value.entity';
 import { CustomFieldsModule } from '@modules/customfields/customfields.module';
@@ -41,7 +40,6 @@ import { ConfigModule } from '@nestjs/config';
     ProfilePopulator,
     ApplicationStatusUpdate,
     ProxyService,
-    CustomFieldsService,
     ConfigModule,
   ],
    exports: [UserService],

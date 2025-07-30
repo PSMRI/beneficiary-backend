@@ -15,7 +15,6 @@ import { UserApplication } from '@entities/user_applications.entity';
 import { LoggerService } from 'src/logger/logger.service';
 import ProfilePopulator from 'src/common/helper/profileUpdate/profile-update';
 import { WalletService } from 'src/services/wallet/wallet.service';
-import { CustomFieldsService } from '@modules/customfields/customfields.service';
 import { Field } from '@modules/customfields/entities/field.entity';
 import { FieldValue } from '@modules/customfields/entities/field-value.entity';
 import { CustomFieldsModule } from '@modules/customfields/customfields.module';
@@ -48,7 +47,6 @@ import { ProxyService } from '@services/proxy/proxy.service';
     LoggerService,
     ProfilePopulator,
     WalletService,
-    CustomFieldsService,
     RoleGuard,
     ProxyService,
   ],

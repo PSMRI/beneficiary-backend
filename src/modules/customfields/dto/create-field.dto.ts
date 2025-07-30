@@ -158,6 +158,7 @@ export class CreateFieldDto {
 		description: 'Field attributes and metadata',
 		example: {
 			isEditable: true,
+			isRequired: false,
 			isEncrypted: false,
 			isSearchable: true,
 		},

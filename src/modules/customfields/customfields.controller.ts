@@ -76,6 +76,7 @@ export class CustomFieldsController {
 					fieldAttributes: {
 						isEditable: true,
 						isRequired: false,
+						isEncrypted: false,
 					},
 					sourceDetails: null,
 					dependsOn: {},
@@ -101,6 +102,30 @@ export class CustomFieldsController {
 					fieldAttributes: {
 						isEditable: true,
 						isRequired: false,
+						isEncrypted: false,
+					},
+				},
+			},
+			encryptedField: {
+				summary: 'Encrypted Field Example',
+				value: {
+					name: 'ssn',
+					label: 'Social Security Number',
+					context: 'USERS',
+					contextType: 'User',
+					type: 'text',
+					ordering: 15,
+					fieldParams: {
+						validation: {
+							regex: '^\\d{3}-\\d{2}-\\d{4}$',
+							minLength: 11,
+							maxLength: 11,
+						},
+					},
+					fieldAttributes: {
+						isEditable: true,
+						isRequired: true,
+						isEncrypted: true,
 					},
 				},
 			},
@@ -228,6 +253,7 @@ export class CustomFieldsController {
 					fieldAttributes: {
 						isEditable: true,
 						isRequired: true,
+						isEncrypted: false,
 					},
 				},
 			},
@@ -245,6 +271,16 @@ export class CustomFieldsController {
 							{ name: 'AB+', value: 'ab_positive' },
 							{ name: 'AB-', value: 'ab_negative' },
 						],
+					},
+				},
+			},
+			enableEncryption: {
+				summary: 'Enable Field Encryption',
+				value: {
+					fieldAttributes: {
+						isEditable: true,
+						isRequired: false,
+						isEncrypted: true,
 					},
 				},
 			},
