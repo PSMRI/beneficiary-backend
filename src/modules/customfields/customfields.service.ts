@@ -7,7 +7,14 @@ import {
 	ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, FindOptionsWhere, In, DeleteResult, UpdateResult, DataSource } from 'typeorm';
+import {
+	Repository,
+	FindOptionsWhere,
+	In,
+	DeleteResult,
+	UpdateResult,
+	DataSource,
+} from 'typeorm';
 import { Field, FieldContext } from './entities/field.entity';
 import { FieldValue } from './entities/field-value.entity';
 import { CreateFieldDto } from './dto/create-field.dto';
@@ -100,6 +107,38 @@ export class CustomFieldsService {
 				name: 'ASC',
 			},
 		});
+
+		// Filter data fields if specified
+		if (queryDto.filterDataFields) {
+			const allowedFields = [
+				'name',
+				'label',
+				'type',
+				'context',
+				'contextType',
+				'dependsOn',
+				'ordering',
+				'isRequired',
+				'isHidden',
+			];
+
+			const requestedFields = queryDto.filterDataFields
+				.split(',')
+				.map((field) => field.trim())
+				.filter((field) => allowedFields.includes(field));
+
+			if (requestedFields.length > 0) {
+				return fields.map((field) => {
+					const filteredField: any = {};
+					requestedFields.forEach((fieldName) => {
+						if (fieldName in field) {
+							filteredField[fieldName] = field[fieldName];
+						}
+					});
+					return filteredField;
+				});
+			}
+		}
 
 		this.logger.debug(`Found ${fields.length} fields`);
 		return fields;

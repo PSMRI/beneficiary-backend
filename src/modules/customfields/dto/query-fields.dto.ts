@@ -58,4 +58,18 @@ export class QueryFieldsDto {
 	@IsBoolean()
 	@Type(() => Boolean)
 	isHidden?: boolean;
+
+	/**
+	 * Filter data fields to return
+	 * @description Comma-separated list of fields to include in response
+	 * @example "name,label,type,context"
+	 */
+	@ApiProperty({
+		description: 'Comma-separated list of fields to include in response',
+		example: 'name,label,type,context',
+		required: false,
+	})
+	@IsOptional()
+	@IsString()
+	filterDataFields?: string;
 }

@@ -12,7 +12,7 @@ import {
 	ParseUUIDPipe,
 	UsePipes,
 	ValidationPipe,
-	UseGuards
+	UseGuards,
 } from '@nestjs/common';
 import {
 	ApiTags,
@@ -182,6 +182,12 @@ export class CustomFieldsController {
 		required: false,
 		type: Boolean,
 		description: 'Filter by hidden status',
+	})
+	@ApiQuery({
+		name: 'filterDataFields',
+		required: false,
+		type: String,
+		description: 'Comma-separated list of fields to include in response (e.g., "name,label,type,context")',
 	})
 	@ApiResponse({
 		status: 200,
